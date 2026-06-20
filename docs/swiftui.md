@@ -1,6 +1,6 @@
 # SwiftUI helper
 
-> Placeholder. The native Swift menu-bar helper (`helpers/mac-helper`) begins in **M2**. This
+> Placeholder. The native Swift menu-bar helper (`helpers/mac-helper`) is a later phase. This
 > doc is populated when that work starts. Coding standards already live in
 > `.claude/rules/swiftui.md`.
 

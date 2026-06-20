@@ -2,13 +2,13 @@
 
 Phone-based Stream Deck for macOS over the local network. A React Native / Expo app drives a
 Mac via WebSocket + JSON; a macOS helper (Node MVP -> Swift menu-bar app) executes commands.
-Full build spec: `plan.md` (gitignored) - v1 = Milestones 0-2; the SSH backend is v2.
+Full build spec: `plan.md` (gitignored); the SSH backend is v2.
 
 ## Layout (pnpm monorepo)
 
-- `apps/mobile` - Expo SDK 56 app (TypeScript) - *created in M0*
-- `packages/protocol` - shared TS types + JSON Schema, the wire contract - *M0*
-- `helpers/node-helper` - Node `ws` MVP helper - *M1* -> later `helpers/mac-helper` (Swift)
+- `apps/mobile` - Expo SDK 56 app (TypeScript)
+- `packages/protocol` - shared TS types + JSON Schema, the wire contract
+- `helpers/node-helper` - Node `ws` MVP helper -> later `helpers/mac-helper` (Swift)
 - `docs/` - human docs | `.claude/` - rules, skills, agents, hooks
 
 ## Commands

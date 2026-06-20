@@ -1,0 +1,34 @@
+{
+  "includeCoAuthoredBy": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/node_modules/**)",
+      "Read(**/dist/**)",
+      "Read(**/.expo/**)",
+      "Read(**/ios/Pods/**)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/doc-sync-reminder.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

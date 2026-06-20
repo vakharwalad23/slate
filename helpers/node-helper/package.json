@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
+    "test": "node --import tsx --test src/commands.test.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@slate/protocol": "workspace:*",
+    "bonjour-service": "^1.4.1",
     "ws": "8.21.0"
   },
   "devDependencies": {

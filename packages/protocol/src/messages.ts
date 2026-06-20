@@ -93,3 +93,6 @@ export const MessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type Message = z.infer<typeof MessageSchema>;
+
+// Narrow the union by its `type` tag so outbound literals stay fully typed without a cast.
+export type MessageOf<T extends Message['type']> = Extract<Message, { type: T }>;

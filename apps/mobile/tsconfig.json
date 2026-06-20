@@ -8,5 +8,5 @@
       "@slate/protocol": ["../../packages/protocol/src/index.ts"]
     }
   },
-  "include": ["src", "expo-env.d.ts"]
+  "include": ["src"]
 }

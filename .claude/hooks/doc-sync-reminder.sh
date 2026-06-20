@@ -1,5 +1,7 @@
 #!/bin/sh
 # Stop-hook nudge only: never spawns an agent, never blocks. Exit 0 always.
+# Run from the project root regardless of the hook's cwd.
+cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 status=$(git status --porcelain 2>/dev/null || true)
 echo "$status" | grep -Eq '(apps|packages|helpers)/' || exit 0

@@ -1,4 +1,2 @@
 #!/bin/sh
-pnpm exec biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched
-# re-stage Biome's safe fixes (whole-file; partial staging is not preserved)
-git update-index --again
+pnpm exec lint-staged

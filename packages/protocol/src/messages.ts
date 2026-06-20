@@ -15,7 +15,7 @@ function msg<T extends string, P extends z.ZodType>(type: T, payload: P) {
   return z.object({ ...envelopeBase, type: z.literal(type), payload });
 }
 
-// App → Helper
+// App -> Helper
 export const HelloMessage = msg(
   'hello',
   z.object({ deviceId: z.string(), deviceName: z.string(), appVersion: z.string() }),
@@ -32,7 +32,7 @@ export const SubscribeStateMessage = msg(
 );
 export const PingMessage = msg('ping', z.object({ t: z.number() }));
 
-// Helper → App
+// Helper -> App
 export const HelloAckMessage = msg(
   'hello_ack',
   z.object({

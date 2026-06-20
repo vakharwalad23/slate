@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "slate",
+    "slug": "slate",
+    "version": "1.0.0",
+    "scheme": "slate",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.slate.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.slate.app"
+    },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}

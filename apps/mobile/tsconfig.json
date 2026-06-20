@@ -1,0 +1,12 @@
+{
+  "extends": ["expo/tsconfig.base", "../../tsconfig.base.json"],
+  "compilerOptions": {
+    "module": "preserve",
+    "lib": ["ESNext", "DOM"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@slate/protocol": ["../../packages/protocol/src/index.ts"]
+    }
+  },
+  "include": ["src", "expo-env.d.ts"]
+}

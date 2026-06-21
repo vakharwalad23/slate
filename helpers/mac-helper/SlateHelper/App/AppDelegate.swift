@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func start() {
         let status = self.status
         status.tokenStore = tokenStore
+        let registry = self.registry
+        status.onRevoke = { deviceId in await registry.closeIfDevice(deviceId) }
         status.boundHost = LocalAddress.primaryIPv4() ?? "0.0.0.0"
         status.refreshAccessibility()
         Task { await status.refreshDevices() }

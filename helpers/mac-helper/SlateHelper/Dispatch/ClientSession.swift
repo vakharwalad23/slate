@@ -28,9 +28,13 @@ actor ClientSession {
         case let .ping(id, _, t):
             send(.pong(id: newMessageId(), reId: id, t: t))
 
-        case .pairRequest:
-            let code = await services.pairing.beginPairing()
-            services.onPairingCode(code)
+        case let .pairRequest(id, _):
+            switch await services.pairing.beginPairing() {
+            case let .code(code):
+                services.onPairingCode(code)
+            case .locked:
+                send(.pairError(id: newMessageId(), reId: id, reason: "locked"))
+            }
 
         case let .pairConfirm(id, _, code):
             switch await services.pairing.confirm(code: code) {
@@ -95,4 +99,6 @@ actor ClientSession {
         send(.error(id: newMessageId(), reId: id, code: "unauthorized", message: "auth required"))
         return false
     }
+
+    func currentDeviceId() -> String? { deviceId }
 }

@@ -34,6 +34,10 @@ final class Connection: @unchecked Sendable {
         connection.cancel()
     }
 
+    func authedDeviceId() async -> String? {
+        await session.currentDeviceId()
+    }
+
     private func receiveNext() {
         connection.receiveMessage { [weak self] data, context, _, error in
             guard let self else { return }

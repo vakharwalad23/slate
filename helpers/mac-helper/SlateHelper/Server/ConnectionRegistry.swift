@@ -18,4 +18,13 @@ actor ConnectionRegistry {
         current?.close()
         current = nil
     }
+
+    // Drop the live connection if it belongs to a revoked device, so revoke takes effect immediately.
+    func closeIfDevice(_ deviceId: String) async {
+        guard let connection = current else { return }
+        if await connection.authedDeviceId() == deviceId {
+            connection.close()
+            current = nil
+        }
+    }
 }

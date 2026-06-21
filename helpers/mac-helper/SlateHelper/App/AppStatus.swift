@@ -12,6 +12,8 @@ final class AppStatus {
     var accessibilityTrusted = false
 
     @ObservationIgnored var tokenStore: TokenStore?
+    // Force-drops the live connection for a revoked device; wired to the registry in AppDelegate.
+    @ObservationIgnored var onRevoke: (@Sendable (String) async -> Void)?
 
     func refreshDevices() async {
         guard let tokenStore else { return }
@@ -21,6 +23,7 @@ final class AppStatus {
     func revoke(_ deviceId: String) async {
         guard let tokenStore else { return }
         await tokenStore.revoke(deviceId: deviceId)
+        await onRevoke?(deviceId)
         pairedDevices = await tokenStore.all()
     }
 

@@ -2,11 +2,21 @@ import SwiftUI
 
 struct MenuContent: View {
     @Bindable var status: AppStatus
+    @State private var portText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(status.serverRunning ? "Listening" : "Starting...", systemImage: status.serverRunning ? "dot.radiowaves.left.and.right" : "hourglass")
-            Text("\(status.boundHost):\(HelperConfig.port)").font(.caption).monospaced().foregroundStyle(.secondary)
+            Text("\(status.boundHost):\(status.port)").font(.caption).monospaced().foregroundStyle(.secondary)
+            HStack {
+                Text("Port").font(.caption)
+                TextField("port", text: $portText).frame(width: 70)
+                Button("Apply") {
+                    if let value = UInt16(portText), value != status.port { status.applyPort(value) }
+                }
+                .disabled(UInt16(portText) == nil)
+            }
+            .font(.caption)
             if let error = status.lastError {
                 Text("Error: \(error)").font(.caption).foregroundStyle(.red)
             }
@@ -60,6 +70,7 @@ struct MenuContent: View {
         .task {
             status.refreshAccessibility()
             status.refreshLoginItem()
+            portText = String(status.port)
         }
     }
 }

@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let catalog = AppCatalog()
     private let registry = ConnectionRegistry()
     private let bonjour = BonjourAdvertiser()
+    private var services: HelperServices?
     private var server: WebSocketServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,9 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.boundHost = LocalAddress.primaryIPv4() ?? "0.0.0.0"
         status.refreshAccessibility()
         status.refreshLoginItem()
+        status.port = Settings.port
+        status.onChangePort = { [weak self] newPort in await self?.startServer(on: newPort) }
         Task { await status.refreshDevices() }
 
-        let services = HelperServices(
+        services = HelperServices(
             tokenStore: tokenStore,
             pairing: pairing,
             catalog: catalog,
@@ -48,13 +51,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onDevicesChanged: { Task { @MainActor in await status.refreshDevices() } }
         )
+        startServer(on: Settings.port)
+    }
 
-        let server = WebSocketServer(
-            port: HelperConfig.port,
-            host: "",
-            registry: registry,
-            services: services
-        ) { state in
+    // (Re)start the listener on a port and re-advertise Bonjour there; used at launch and on a port change.
+    private func startServer(on port: UInt16) {
+        guard let services else { return }
+        server?.stop()
+        bonjour.unregister()
+        let status = self.status
+        let server = WebSocketServer(port: port, host: "", registry: registry, services: services) { state in
             Task { @MainActor in
                 if state == "running" {
                     status.serverRunning = true
@@ -68,7 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.server = server
             try bonjour.register(
                 serviceType: HelperConfig.serviceType,
-                port: HelperConfig.port,
+                port: port,
                 txt: ["protocol": String(PROTOCOL_VERSION)]
             )
         } catch {

@@ -10,6 +10,7 @@ final class AppStatus {
     var pairingCode: String?
     var pairedDevices: [PairedDevice] = []
     var accessibilityTrusted = false
+    var openAtLogin = false
 
     @ObservationIgnored var tokenStore: TokenStore?
     // Force-drops the live connection for a revoked device; wired to the registry in AppDelegate.
@@ -29,6 +30,19 @@ final class AppStatus {
 
     func refreshAccessibility() {
         accessibilityTrusted = PermissionProbe.accessibilityTrusted(prompt: false)
+    }
+
+    func refreshLoginItem() {
+        openAtLogin = LoginItem.isEnabled()
+    }
+
+    func setOpenAtLogin(_ enabled: Bool) {
+        do {
+            try LoginItem.set(enabled)
+        } catch {
+            lastError = "login item: \(error.localizedDescription)"
+        }
+        openAtLogin = LoginItem.isEnabled()
     }
 
     func promptAccessibility() {

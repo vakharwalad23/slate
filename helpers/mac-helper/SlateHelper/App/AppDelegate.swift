@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.onRevoke = { deviceId in await registry.closeIfDevice(deviceId) }
         status.boundHost = LocalAddress.primaryIPv4() ?? "0.0.0.0"
         status.refreshAccessibility()
+        status.refreshLoginItem()
         Task { await status.refreshDevices() }
 
         let services = HelperServices(

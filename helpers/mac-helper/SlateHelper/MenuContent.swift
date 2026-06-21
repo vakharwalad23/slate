@@ -45,10 +45,21 @@ struct MenuContent: View {
             }
 
             Divider()
+            Toggle("Open at login", isOn: Binding(
+                get: { status.openAtLogin },
+                set: { status.setOpenAtLogin($0) }
+            ))
+            .font(.caption)
+            .toggleStyle(.checkbox)
+
+            Divider()
             Button("Quit slate helper") { NSApplication.shared.terminate(nil) }
         }
         .padding(12)
         .frame(width: 260)
-        .task { status.refreshAccessibility() }
+        .task {
+            status.refreshAccessibility()
+            status.refreshLoginItem()
+        }
     }
 }

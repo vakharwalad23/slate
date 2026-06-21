@@ -20,6 +20,7 @@ export type RootState = ConnectionSlice &
 const MetaSchema = z.object({
   host: z.string().optional(),
   port: z.number().optional(),
+  helperName: z.string().nullable().optional(),
   currentDeckId: z.string().nullable().optional(),
   currentPageId: z.string().nullable().optional(),
 });
@@ -44,6 +45,7 @@ export const useStore = create<RootState>()(
         partialize: (state) => ({
           host: state.host,
           port: state.port,
+          helperName: state.helperName,
           decks: state.decks,
           currentDeckId: state.currentDeckId,
           currentPageId: state.currentPageId,
@@ -57,6 +59,7 @@ export const useStore = create<RootState>()(
             ...(meta.success && {
               ...(meta.data.host !== undefined && { host: meta.data.host }),
               ...(meta.data.port !== undefined && { port: meta.data.port }),
+              ...(meta.data.helperName !== undefined && { helperName: meta.data.helperName }),
               ...(meta.data.currentDeckId !== undefined && {
                 currentDeckId: meta.data.currentDeckId,
               }),

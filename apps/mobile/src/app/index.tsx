@@ -24,6 +24,7 @@ export default function HomeScreen() {
   const pathname = usePathname();
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('8765');
+  const [helperName, setHelperName] = useState<string | null>(null);
 
   const socketUp = status === 'connected';
 
@@ -53,7 +54,7 @@ export default function HomeScreen() {
     const portNumber = Number(port) || 8765;
     const target = host.trim();
     void ensureLocalNetworkPermission().then((granted) => {
-      if (granted) connect(target, portNumber);
+      if (granted) connect(target, portNumber, helperName ?? undefined);
     });
   };
 
@@ -63,9 +64,10 @@ export default function HomeScreen() {
       <Text style={styles.status}>{status}</Text>
 
       <DiscoveryList
-        onSelect={(foundHost, foundPort) => {
+        onSelect={(foundHost, foundPort, name) => {
           setHost(foundHost);
           setPort(String(foundPort));
+          setHelperName(name);
         }}
       />
 

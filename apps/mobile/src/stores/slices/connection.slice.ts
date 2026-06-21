@@ -13,7 +13,8 @@ export type ConnectionSlice = {
   lastResult: CommandResult | null;
   host: string;
   port: number;
-  connect: (host: string, port: number) => void;
+  helperName: string | null;
+  connect: (host: string, port: number, helperName?: string) => void;
   disconnect: () => void;
   sendCommand: (command: Command) => void;
 };
@@ -74,9 +75,11 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     lastResult: null,
     host: 'localhost',
     port: 8765,
-    connect: (host, port) => {
-      set({ host, port, lastResult: null });
-      webSocketTransport.connect(host, port);
+    helperName: null,
+    connect: (host, port, helperName) => {
+      const name = helperName ?? get().helperName ?? undefined;
+      set({ host, port, lastResult: null, ...(name !== undefined && { helperName: name }) });
+      webSocketTransport.connect(host, port, name);
     },
     disconnect: () => {
       webSocketTransport.disconnect();

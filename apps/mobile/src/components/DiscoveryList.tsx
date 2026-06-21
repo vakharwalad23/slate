@@ -2,7 +2,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores/store';
 
-export function DiscoveryList({ onSelect }: { onSelect: (host: string, port: number) => void }) {
+export function DiscoveryList({
+  onSelect,
+}: {
+  onSelect: (host: string, port: number, name: string) => void;
+}) {
   const { found, discoveryGate, scanning } = useStore(
     useShallow((s) => ({ found: s.found, discoveryGate: s.discoveryGate, scanning: s.scanning })),
   );
@@ -23,7 +27,7 @@ export function DiscoveryList({ onSelect }: { onSelect: (host: string, port: num
         <Pressable
           key={`${helper.host}:${helper.port}`}
           style={styles.row}
-          onPress={() => onSelect(helper.host, helper.port)}
+          onPress={() => onSelect(helper.host, helper.port, helper.name)}
         >
           <Text style={styles.name}>{helper.name}</Text>
           <Text style={styles.addr}>

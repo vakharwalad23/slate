@@ -1,6 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import type { Message } from '@slate/protocol';
 import { MessageSchema } from '@slate/protocol';
+import { type RediscoveryHandle, startRediscovery } from '@/lib/discovery/rediscovery';
 import { pingMessage } from './messages';
 import type { Status, Transport, TransportHandlers } from './transport';
 
@@ -8,6 +9,7 @@ const HEARTBEAT_MS = 5000;
 const STALE_MS = HEARTBEAT_MS * 2;
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30000;
+const REDISCOVER_AFTER_FAILS = 3;
 
 let handlers: TransportHandlers | null = null;
 let socket: WebSocket | null = null;
@@ -21,6 +23,11 @@ let backoff = BACKOFF_MIN_MS;
 let lastPong = 0;
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+// Network-change re-sync: after repeated direct misses, browse for the helper by its Bonjour name and
+// follow it to a new IP. Exactly one browse at a time; torn down on connect/disconnect/success.
+let helperName: string | null = null;
+let rediscovery: RediscoveryHandle | null = null;
+let failedDirectAttempts = 0;
 
 function setStatus(status: Status): void {
   handlers?.onStatus(status);
@@ -38,6 +45,33 @@ function clearReconnect(): void {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+}
+
+function stopRediscovery(): void {
+  if (rediscovery !== null) {
+    rediscovery.stop();
+    rediscovery = null;
+  }
+}
+
+// Start exactly one browse to follow the helper to a new address. No-ops if one is live, if we have no
+// name to match, if we don't want to connect, or if a socket is already open.
+function beginRediscovery(gen: number): void {
+  if (gen !== generation || desired !== 'connected') return;
+  if (rediscovery !== null || helperName === null) return;
+  if (socket?.readyState === WebSocket.OPEN) return;
+  rediscovery = startRediscovery(helperName, (newHost, newPort) => {
+    if (gen !== generation || desired !== 'connected') return;
+    if (newHost === host && newPort === port) return;
+    host = newHost;
+    port = newPort;
+    stopRediscovery();
+    clearReconnect();
+    detachSocket();
+    backoff = BACKOFF_MIN_MS;
+    failedDirectAttempts = 0;
+    open();
+  });
 }
 
 // Detach handlers before close: RN fires onclose asynchronously and it would otherwise re-enter
@@ -93,6 +127,8 @@ function drop(gen: number): void {
 function scheduleReconnect(gen: number): void {
   if (desired !== 'connected' || gen !== generation || reconnectTimer !== null) return;
   setStatus('connecting');
+  failedDirectAttempts += 1;
+  if (failedDirectAttempts >= REDISCOVER_AFTER_FAILS) beginRediscovery(gen);
   const delay = backoff;
   backoff = Math.min(backoff * 2, BACKOFF_MAX_MS);
   reconnectTimer = setTimeout(() => {
@@ -110,6 +146,8 @@ function open(): void {
   ws.onopen = () => {
     if (gen !== generation) return;
     backoff = BACKOFF_MIN_MS;
+    failedDirectAttempts = 0;
+    stopRediscovery();
     lastPong = Date.now();
     setStatus('connected');
     startHeartbeat(gen);
@@ -125,14 +163,17 @@ function open(): void {
   };
 }
 
-function connect(h: string, p: number): void {
+function connect(h: string, p: number, name?: string): void {
   generation += 1;
   desired = 'connected';
   host = h;
   port = p;
+  if (name !== undefined) helperName = name;
   backoff = BACKOFF_MIN_MS;
+  failedDirectAttempts = 0;
   clearHeartbeat();
   clearReconnect();
+  stopRediscovery();
   detachSocket();
   open();
 }
@@ -140,8 +181,10 @@ function connect(h: string, p: number): void {
 function disconnect(): void {
   generation += 1;
   desired = 'disconnected';
+  failedDirectAttempts = 0;
   clearHeartbeat();
   clearReconnect();
+  stopRediscovery();
   detachSocket();
   setStatus('disconnected');
 }
@@ -161,8 +204,10 @@ NetInfo.addEventListener((state) => {
   if (!state.isConnected || state.isInternetReachable === false) return;
   if (socket?.readyState === WebSocket.OPEN) return;
   clearReconnect();
+  stopRediscovery();
   detachSocket();
   backoff = BACKOFF_MIN_MS;
+  failedDirectAttempts = 0;
   open();
 });
 

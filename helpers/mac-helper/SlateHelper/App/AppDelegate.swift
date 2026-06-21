@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let bonjour = BonjourAdvertiser()
     private var services: HelperServices?
     private var server: WebSocketServer?
+    private var netMonitor: NetworkMonitor?
+    private var currentPort = HelperConfig.port
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Skip the live server when the app is launched only to host unit tests.
@@ -21,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        netMonitor?.stop()
         server?.stop()
         bonjour.unregister()
     }
@@ -57,11 +60,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         startServer(on: Settings.port)
+
+        // On the Mac's own IP change, re-advertise so a phone on the new network can rediscover us.
+        let monitor = NetworkMonitor { [weak self] address in
+            Task { @MainActor in
+                guard let self else { return }
+                self.status.boundHost = address ?? "0.0.0.0"
+                self.bonjour.unregister()
+                try? self.bonjour.register(
+                    serviceType: HelperConfig.serviceType,
+                    port: self.currentPort,
+                    txt: ["protocol": String(PROTOCOL_VERSION)]
+                )
+            }
+        }
+        monitor.start()
+        netMonitor = monitor
     }
 
     // (Re)start the listener on a port and re-advertise Bonjour there; used at launch and on a port change.
     private func startServer(on port: UInt16) {
         guard let services else { return }
+        currentPort = port
         server?.stop()
         bonjour.unregister()
         let status = self.status

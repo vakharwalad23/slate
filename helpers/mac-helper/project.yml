@@ -28,6 +28,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: SlateHelper/Info.plist
         PRODUCT_NAME: SlateHelper
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
       testTargets:
         - SlateHelperTests

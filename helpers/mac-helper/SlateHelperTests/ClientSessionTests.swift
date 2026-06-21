@@ -21,7 +21,8 @@ private func makeServices(code: String = "654321") -> HelperServices {
         helperName: HelperConfig.name,
         helperVersion: HelperConfig.version,
         onPairingCode: { _ in },
-        onDevicesChanged: {}
+        onDevicesChanged: {},
+        onLog: { _, _ in }
     )
 }
 

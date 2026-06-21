@@ -63,6 +63,25 @@ struct MenuContent: View {
             .toggleStyle(.checkbox)
 
             Divider()
+            HStack {
+                Text("Logs").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if !status.log.entries.isEmpty {
+                    Button("Clear") { status.log.clear() }.buttonStyle(.borderless).font(.caption)
+                }
+            }
+            if status.log.entries.isEmpty {
+                Text("No warnings or errors").font(.caption2).foregroundStyle(.secondary)
+            } else {
+                ForEach(status.log.entries.suffix(6).reversed()) { entry in
+                    Text(entry.message)
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .foregroundStyle(entry.level == .error ? .red : .orange)
+                }
+            }
+
+            Divider()
             Button("Quit slate helper") { NSApplication.shared.terminate(nil) }
         }
         .padding(12)

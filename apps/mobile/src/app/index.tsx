@@ -90,6 +90,9 @@ export default function HomeScreen() {
         <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
       )}
       <TestConnectionButton host={host.trim()} port={Number(port) || 8765} />
+
+      <View style={styles.divider} />
+      <Button title="Logs" onPress={() => router.push('/logs')} />
     </View>
   );
 }
@@ -99,4 +102,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '600', textAlign: 'center' },
   status: { fontSize: 14, opacity: 0.6, textAlign: 'center', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
+  divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
 });

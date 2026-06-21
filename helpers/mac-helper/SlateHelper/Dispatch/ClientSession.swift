@@ -62,12 +62,14 @@ actor ClientSession {
                 deviceId = resolved
                 send(.authOk(id: newMessageId(), reId: id))
             } else {
+                services.onLog(false, "auth rejected: invalid token")
                 send(.authError(id: newMessageId(), reId: id, reason: "invalid token"))
             }
 
         case let .commandExecute(id, _, command):
             guard requireAuth(id: id, send: send) else { return }
             let outcome = await services.executor.execute(command)
+            if !outcome.ok { services.onLog(false, "command failed: \(outcome.error ?? "unknown")") }
             send(.commandResult(id: newMessageId(), reId: id, ok: outcome.ok, error: outcome.error))
 
         case let .appsList(id, _):

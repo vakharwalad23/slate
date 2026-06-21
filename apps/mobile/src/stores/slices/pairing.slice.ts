@@ -34,7 +34,7 @@ export type PairingSlice = {
   onSocketDown: () => void;
 };
 
-export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> = (set) => ({
+export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> = (set, get) => ({
   authPhase: 'idle',
   pairFailureReason: null,
   hasStoredToken: false,
@@ -79,6 +79,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
         break;
       case 'auth_error':
         void deleteToken();
+        get().logError(`auth: ${message.payload.reason}`);
         set({
           authPhase: 'auth_error',
           hasStoredToken: false,
@@ -86,6 +87,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
         });
         break;
       case 'pair_error':
+        get().logWarn(`pairing: ${message.payload.reason}`);
         set({ authPhase: 'pair_error', pairFailureReason: message.payload.reason });
         break;
     }

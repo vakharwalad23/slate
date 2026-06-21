@@ -12,6 +12,7 @@ final class AppStatus {
     var accessibilityTrusted = false
     var openAtLogin = false
     var port: UInt16 = HelperConfig.port
+    let log = LogStore()
 
     @ObservationIgnored var tokenStore: TokenStore?
     // Force-drops the live connection for a revoked device; wired to the registry in AppDelegate.
@@ -51,6 +52,7 @@ final class AppStatus {
             try LoginItem.set(enabled)
         } catch {
             lastError = "login item: \(error.localizedDescription)"
+            log.error("login item: \(error.localizedDescription)")
         }
         openAtLogin = LoginItem.isEnabled()
     }

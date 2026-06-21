@@ -34,11 +34,12 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
       },
       () => set({ discoveryGate: 'disabled' }),
     );
-    set(
-      handle === null
-        ? { discoveryGate: 'disabled', scanning: false }
-        : { discoveryGate: 'enabled' },
-    );
+    if (handle === null) {
+      get().logWarn('discovery unavailable on this device');
+      set({ discoveryGate: 'disabled', scanning: false });
+    } else {
+      set({ discoveryGate: 'enabled' });
+    }
   },
 
   stopScan: () => {

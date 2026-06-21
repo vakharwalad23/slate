@@ -7,9 +7,15 @@ import { type AppsSlice, createAppsSlice } from './slices/apps.slice';
 import { type ConnectionSlice, createConnectionSlice } from './slices/connection.slice';
 import { createDeckSlice, type DeckSlice } from './slices/deck.slice';
 import { createDiscoverySlice, type DiscoverySlice } from './slices/discovery.slice';
+import { createLogsSlice, type LogsSlice } from './slices/logs.slice';
 import { createPairingSlice, type PairingSlice } from './slices/pairing.slice';
 
-export type RootState = ConnectionSlice & PairingSlice & DeckSlice & AppsSlice & DiscoverySlice;
+export type RootState = ConnectionSlice &
+  PairingSlice &
+  DeckSlice &
+  AppsSlice &
+  DiscoverySlice &
+  LogsSlice;
 
 const MetaSchema = z.object({
   host: z.string().optional(),
@@ -29,6 +35,7 @@ export const useStore = create<RootState>()(
         ...createDeckSlice(...a),
         ...createAppsSlice(...a),
         ...createDiscoverySlice(...a),
+        ...createLogsSlice(...a),
       }),
       {
         name: 'slate-root',

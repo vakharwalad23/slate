@@ -49,7 +49,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let code { logger.notice("pairing code: \(code, privacy: .public)") }
                 Task { @MainActor in status.pairingCode = code }
             },
-            onDevicesChanged: { Task { @MainActor in await status.refreshDevices() } }
+            onDevicesChanged: { Task { @MainActor in await status.refreshDevices() } },
+            onLog: { isError, message in
+                Task { @MainActor in
+                    if isError { status.log.error(message) } else { status.log.warn(message) }
+                }
+            }
         )
         startServer(on: Settings.port)
     }
@@ -66,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     status.serverRunning = true
                 } else if state.hasPrefix("error") {
                     status.lastError = state
+                    status.log.error(state)
                 }
             }
         }
@@ -79,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         } catch {
             status.lastError = "\(error)"
+            status.log.error("\(error)")
         }
     }
 }

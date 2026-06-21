@@ -11,4 +11,5 @@ struct HelperServices: Sendable {
     let helperVersion: String
     let onPairingCode: @Sendable (String?) -> Void
     let onDevicesChanged: @Sendable () -> Void
+    let onLog: @Sendable (_ isError: Bool, _ message: String) -> Void
 }

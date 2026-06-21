@@ -47,6 +47,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         case 'command.result': {
           const { ok, error } = message.payload;
           set({ lastResult: { ok, ...(error !== undefined && { error }) } });
+          if (!ok) get().logError(`command failed: ${error ?? 'unknown'}`);
           break;
         }
         case 'auth_ok':

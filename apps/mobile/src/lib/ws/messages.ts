@@ -67,3 +67,23 @@ export function authMessage(token: string): MessageOf<'auth'> {
     payload: { token },
   };
 }
+
+export function appsListMessage(): MessageOf<'apps.list'> {
+  return {
+    v: PROTOCOL_VERSION,
+    id: Crypto.randomUUID(),
+    reId: null,
+    type: 'apps.list',
+    payload: {},
+  };
+}
+
+export function appsIconMessage(bundleIds: string[]): MessageOf<'apps.icon'> {
+  return {
+    v: PROTOCOL_VERSION,
+    id: Crypto.randomUUID(),
+    reId: null,
+    type: 'apps.icon',
+    payload: { bundleIds },
+  };
+}

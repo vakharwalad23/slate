@@ -7,40 +7,38 @@ import { useStore } from '@/stores/store';
 const PAIRING_PHASES = ['needs_pairing', 'code_entry', 'confirming', 'auth_error', 'pair_error'];
 
 export default function HomeScreen() {
-  const { status, helper, lastResult, authPhase, bootstrapped, connect, disconnect, sendCommand } =
-    useStore(
-      useShallow((s) => ({
-        status: s.status,
-        helper: s.helper,
-        lastResult: s.lastResult,
-        authPhase: s.authPhase,
-        bootstrapped: s.bootstrapped,
-        connect: s.connect,
-        disconnect: s.disconnect,
-        sendCommand: s.sendCommand,
-      })),
-    );
+  const { status, authPhase, bootstrapped, connect, disconnect } = useStore(
+    useShallow((s) => ({
+      status: s.status,
+      authPhase: s.authPhase,
+      bootstrapped: s.bootstrapped,
+      connect: s.connect,
+      disconnect: s.disconnect,
+    })),
+  );
   const pathname = usePathname();
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('8765');
-  const [app, setApp] = useState('Safari');
 
-  // Drive the pairing route off the auth phase; only push/pop on the edge so it never stacks.
+  // Single nav driver (this root screen stays mounted): pairing -> deck on the phase edges.
   useEffect(() => {
     if (PAIRING_PHASES.includes(authPhase) && pathname === '/') {
       router.push('/pairing');
     } else if (authPhase === 'paired' && pathname === '/pairing') {
       router.back();
+    } else if (authPhase === 'paired' && pathname === '/') {
+      router.push('/deck');
+    } else if (authPhase === 'idle' && pathname === '/deck') {
+      router.back();
     }
   }, [authPhase, pathname]);
 
   const socketUp = status === 'connected';
-  const paired = authPhase === 'paired';
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>slate</Text>
-      <Text style={styles.status}>{paired && helper ? `Paired with ${helper.name}` : status}</Text>
+      <Text style={styles.status}>{status}</Text>
 
       <TextInput
         style={styles.input}
@@ -66,27 +64,6 @@ export default function HomeScreen() {
           disabled={!bootstrapped}
         />
       )}
-
-      <View style={styles.divider} />
-
-      <TextInput
-        style={styles.input}
-        value={app}
-        onChangeText={setApp}
-        autoCapitalize="words"
-        placeholder="app name"
-      />
-      <Button
-        title={`Launch ${app}`}
-        onPress={() => sendCommand({ kind: 'launch_app', app })}
-        disabled={!paired}
-      />
-
-      {lastResult ? (
-        <Text style={lastResult.ok ? styles.ok : styles.err}>
-          {lastResult.ok ? 'OK' : `Error: ${lastResult.error ?? 'unknown'}`}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -96,7 +73,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '600', textAlign: 'center' },
   status: { fontSize: 14, opacity: 0.6, textAlign: 'center', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
-  ok: { color: '#2e7d32', textAlign: 'center', fontSize: 14 },
-  err: { color: '#c62828', textAlign: 'center', fontSize: 14 },
 });

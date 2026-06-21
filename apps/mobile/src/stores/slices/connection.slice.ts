@@ -55,6 +55,14 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         case 'pair_error':
           get().onAuthMessage(message);
           break;
+        case 'apps.list.response':
+          get().ingestAppsResponse(message.payload.apps, message.reId);
+          break;
+        case 'apps.icon.response':
+          for (const icon of message.payload.icons) {
+            get().ingestIconResponse(icon.bundleId, icon.pngBase64, icon.iconVersion);
+          }
+          break;
       }
     },
   });

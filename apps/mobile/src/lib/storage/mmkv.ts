@@ -2,28 +2,40 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMMKV } from 'react-native-mmkv';
 import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 
-// MMKV v4 is a Nitro module. If Nitro autolinking fails on SDK 56, fall back to AsyncStorage
-// (async, one possible hydration frame) so persistence still works. The icon cache (separate
-// MMKV id) is added later and tolerates this fallback by becoming a no-op.
-function makeBackend(): StateStorage {
-  try {
-    const mmkv = createMMKV({ id: 'slate-state' });
-    return {
-      getItem: (name) => mmkv.getString(name) ?? null,
-      setItem: (name, value) => {
-        mmkv.set(name, value);
-      },
-      removeItem: (name) => {
-        mmkv.remove(name);
-      },
-    };
-  } catch {
-    return {
-      getItem: (name) => AsyncStorage.getItem(name),
-      setItem: (name, value) => AsyncStorage.setItem(name, value),
-      removeItem: (name) => AsyncStorage.removeItem(name),
-    };
-  }
+type MmkvInstance = ReturnType<typeof createMMKV>;
+
+// MMKV v4 is a Nitro module. If Nitro autolinking fails on SDK 56, both instances are null: persisted
+// state falls back to AsyncStorage and the icon cache becomes a no-op (icons just re-fetch over WS).
+let stateMmkv: MmkvInstance | null = null;
+let iconMmkv: MmkvInstance | null = null;
+try {
+  stateMmkv = createMMKV({ id: 'slate-state' });
+  iconMmkv = createMMKV({ id: 'slate-icons' });
+} catch {
+  stateMmkv = null;
+  iconMmkv = null;
 }
 
-export const persistStorage = createJSONStorage(() => makeBackend());
+function backend(state: MmkvInstance | null): StateStorage {
+  if (state) {
+    return {
+      getItem: (name) => state.getString(name) ?? null,
+      setItem: (name, value) => {
+        state.set(name, value);
+      },
+      removeItem: (name) => {
+        state.remove(name);
+      },
+    };
+  }
+  return {
+    getItem: (name) => AsyncStorage.getItem(name),
+    setItem: (name, value) => AsyncStorage.setItem(name, value),
+    removeItem: (name) => AsyncStorage.removeItem(name),
+  };
+}
+
+export const persistStorage = createJSONStorage(() => backend(stateMmkv));
+
+// Separate namespace so clearing the icon cache never touches persisted prefs/decks.
+export const iconStore = iconMmkv;

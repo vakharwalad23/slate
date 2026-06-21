@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.slate.app"
+      "bundleIdentifier": "com.slate.app",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "slate finds and connects to your Mac on the local network.",
+        "NSBonjourServices": ["_slate._tcp"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.slate.app"
+      "package": "com.slate.app",
+      "permissions": ["android.permission.ACCESS_LOCAL_NETWORK"]
     },
     "plugins": [
       "expo-router",

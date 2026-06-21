@@ -10,8 +10,11 @@ shape changes.
 - **expo-router** (SDK-aligned version) for file-based routing.
 - **Zustand** for state (single store, typed slices). **Zod** for boundary validation.
 - **react-native-mmkv** for persistence (AsyncStorage fallback); auth token in **expo-secure-store**.
-- **expo-image**, **@shopify/flash-list** v2 for media/lists.
+- **expo-image**, **@shopify/flash-list** v2 for media/lists. **expo-splash-screen** for the
+  branded splash. App icon: deck-grid (indigo) adaptive foreground/monochrome via `expo-image`.
 - WebSocket: React Native built-in (no library). Discovery: manual host:port first, then mDNS.
+  After repeated reconnect misses, `lib/discovery/rediscovery.ts` browses by stored `helperName`
+  and follows the helper to a new IP (network-change auto re-sync).
 
 Requires an Expo **dev build** (`expo prebuild`) - Expo Go cannot load the native modules.
 
@@ -28,6 +31,7 @@ src/
     index.ts           re-exports
   lib/
     ws/                WebSocket transport (singleton client + reconnect)
+    discovery/         rediscovery.ts - Bonjour browse fallback after repeated reconnect misses
     utils/             pure helpers
   schemas/             Zod schemas (runtime validation at boundaries)
   types/               TS-only types not exported from @slate/protocol

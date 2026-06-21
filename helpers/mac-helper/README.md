@@ -55,6 +55,16 @@ bumps, diff it against the generated schema (`pnpm -F @slate/protocol gen:schema
 Reply `id`/`reId` are lowercased uuids; a reply whose `id` is not a valid uuid is dropped by the
 phone at its validation boundary.
 
+## Build a release DMG
+
+```
+scripts/make-dmg.sh
+```
+
+Archives Release, takes the `.app` from the archive, ad-hoc signs it (self-signed, no Developer ID,
+no notarization), and packages a drag-and-drop `build/slate-helper.dmg`. Publish it next to the
+Android APK on a GitHub release (`gh release create ...`).
+
 ## Installing a released build (self-signed, not notarized)
 
 Released builds are self-signed and not notarized. After dragging `SlateHelper.app` to

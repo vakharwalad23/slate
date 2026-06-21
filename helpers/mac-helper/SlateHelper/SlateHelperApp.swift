@@ -8,6 +8,6 @@ struct SlateHelperApp: App {
         MenuBarExtra("slate helper", systemImage: "square.grid.3x2.fill") {
             MenuContent(status: appDelegate.status)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
     }
 }

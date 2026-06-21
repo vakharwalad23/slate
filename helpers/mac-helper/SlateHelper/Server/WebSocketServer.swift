@@ -5,7 +5,7 @@ final class WebSocketServer: @unchecked Sendable {
     private let port: UInt16
     private let host: String
     private let registry: ConnectionRegistry
-    private let dispatcher: Dispatcher
+    private let services: HelperServices
     private let onState: @Sendable (String) -> Void
     private let queue = DispatchQueue(label: "com.slate.helper.ws")
     private var listener: NWListener?
@@ -14,13 +14,13 @@ final class WebSocketServer: @unchecked Sendable {
         port: UInt16,
         host: String,
         registry: ConnectionRegistry,
-        dispatcher: Dispatcher,
+        services: HelperServices,
         onState: @escaping @Sendable (String) -> Void
     ) {
         self.port = port
         self.host = host
         self.registry = registry
-        self.dispatcher = dispatcher
+        self.services = services
         self.onState = onState
     }
 
@@ -68,7 +68,7 @@ final class WebSocketServer: @unchecked Sendable {
     private func accept(_ nwConnection: NWConnection) {
         let registry = self.registry
         let queue = self.queue
-        let connection = Connection(connection: nwConnection, dispatcher: dispatcher) { closed in
+        let connection = Connection(connection: nwConnection, services: services) { closed in
             Task { await registry.clear(closed) }
         }
         Task {

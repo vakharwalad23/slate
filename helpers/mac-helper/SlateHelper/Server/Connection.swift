@@ -5,12 +5,12 @@ import Network
 // the shared listener queue + NWConnection's own internals, so @unchecked Sendable is sound here.
 final class Connection: @unchecked Sendable {
     private let connection: NWConnection
-    private let dispatcher: Dispatcher
+    private let session: ClientSession
     private let onClose: @Sendable (Connection) -> Void
 
-    init(connection: NWConnection, dispatcher: Dispatcher, onClose: @escaping @Sendable (Connection) -> Void) {
+    init(connection: NWConnection, services: HelperServices, onClose: @escaping @Sendable (Connection) -> Void) {
         self.connection = connection
-        self.dispatcher = dispatcher
+        self.session = ClientSession(services: services)
         self.onClose = onClose
     }
 
@@ -37,31 +37,31 @@ final class Connection: @unchecked Sendable {
     private func receiveNext() {
         connection.receiveMessage { [weak self] data, context, _, error in
             guard let self else { return }
-            if let data, !data.isEmpty,
-               let metadata = context?.protocolMetadata.compactMap({ $0 as? NWProtocolWebSocket.Metadata }).first,
-               metadata.opcode == .text {
-                Task { await self.handle(data) }
-            }
-            if error == nil {
-                self.receiveNext()
-            } else {
+            if error != nil {
                 self.onClose(self)
+                return
+            }
+            let isText = (context?.protocolMetadata.compactMap { $0 as? NWProtocolWebSocket.Metadata }.first)?.opcode == .text
+            if let data, !data.isEmpty, isText {
+                // Re-arm only after this message is fully handled so per-connection state stays ordered.
+                Task {
+                    await self.handle(data)
+                    self.receiveNext()
+                }
+            } else {
+                self.receiveNext()
             }
         }
     }
 
     private func handle(_ data: Data) async {
-        switch decodeMessage(data) {
-        case let .success(message):
-            if let reply = await dispatcher.dispatch(message) {
-                send(reply)
-            }
-        case .failure:
-            break
+        guard case let .success(message) = decodeMessage(data) else { return }
+        await session.handle(message) { [weak self] reply in
+            self?.sendFrame(reply)
         }
     }
 
-    private func send(_ message: Message) {
+    private func sendFrame(_ message: Message) {
         guard let data = try? encodeMessage(message) else { return }
         let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
         let context = NWConnection.ContentContext(identifier: "msg", metadata: [metadata])

@@ -6,14 +6,14 @@ enum HelperConfig {
     static let port: UInt16 = 8765
     static let serviceType = "_slate._tcp"
 
-    // Flags are true only where CommandExecutor actually wires the action; the app greys out the rest.
+    // Flags are true only where the executor/responders actually wire the action; the app greys out the rest.
     static let capabilities = Capabilities(
         launchApps: true,
         runShortcuts: true,
         runShell: false,
         keystrokes: false,
-        appList: false,
-        appIcons: false,
+        appList: true,
+        appIcons: true,
         liveState: false
     )
 }

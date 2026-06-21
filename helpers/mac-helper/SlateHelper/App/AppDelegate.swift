@@ -1,8 +1,14 @@
 import AppKit
+import os
+
+private let logger = Logger(subsystem: "com.slate.helper", category: "helper")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let status = AppStatus()
+    private let tokenStore = TokenStore()
+    private let pairing = PairingService()
+    private let catalog = AppCatalog()
     private let registry = ConnectionRegistry()
     private let bonjour = BonjourAdvertiser()
     private var server: WebSocketServer?
@@ -19,19 +25,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func start() {
+        let status = self.status
+        status.tokenStore = tokenStore
         status.boundHost = LocalAddress.primaryIPv4() ?? "0.0.0.0"
+        status.refreshAccessibility()
+        Task { await status.refreshDevices() }
+
+        let services = HelperServices(
+            tokenStore: tokenStore,
+            pairing: pairing,
+            catalog: catalog,
+            executor: CommandExecutor(),
+            capabilities: HelperConfig.capabilities,
+            helperName: HelperConfig.name,
+            helperVersion: HelperConfig.version,
+            onPairingCode: { code in
+                if let code { logger.notice("pairing code: \(code, privacy: .public)") }
+                Task { @MainActor in status.pairingCode = code }
+            },
+            onDevicesChanged: { Task { @MainActor in await status.refreshDevices() } }
+        )
+
         let server = WebSocketServer(
             port: HelperConfig.port,
             host: "",
             registry: registry,
-            dispatcher: Dispatcher()
-        ) { [weak self] state in
+            services: services
+        ) { state in
             Task { @MainActor in
-                guard let self else { return }
                 if state == "running" {
-                    self.status.serverRunning = true
+                    status.serverRunning = true
                 } else if state.hasPrefix("error") {
-                    self.status.lastError = state
+                    status.lastError = state
                 }
             }
         }

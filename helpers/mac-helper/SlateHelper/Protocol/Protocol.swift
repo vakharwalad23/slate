@@ -12,6 +12,19 @@ struct Capabilities: Codable, Equatable, Sendable {
     var liveState: Bool
 }
 
+struct AppInfo: Codable, Sendable, Equatable {
+    let bundleId: String
+    let name: String
+    let path: String
+    let iconVersion: String
+}
+
+struct IconEntry: Codable, Sendable, Equatable {
+    let bundleId: String
+    let pngBase64: String
+    let iconVersion: String
+}
+
 // Mirrors command.ts discriminatedUnion("kind"). Wire field names are load-bearing.
 enum Command: Equatable, Sendable {
     case launchApp(app: String)
@@ -72,28 +85,28 @@ extension Command: Codable {
     }
 }
 
-// Mirrors messages.ts discriminatedUnion("type"). Cases for other types land with later features;
-// unknown(type:) tolerates anything not yet handled so the receive loop can drop it (mirrors the
-// Node helper's `default: return null`).
+// Mirrors messages.ts discriminatedUnion("type"). unknown(type:) tolerates anything not handled so
+// the receive loop can drop it (mirrors the Node helper's `default: return null`).
 enum Message: Sendable {
+    // app -> helper
     case hello(id: String, reId: String?, deviceId: String, deviceName: String, appVersion: String)
-    case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
-    case ping(id: String, reId: String?, t: Double)
-    case pong(id: String, reId: String?, t: Double)
+    case pairRequest(id: String, reId: String?)
+    case pairConfirm(id: String, reId: String?, code: String)
+    case auth(id: String, reId: String?, token: String)
     case commandExecute(id: String, reId: String?, command: Command)
+    case appsList(id: String, reId: String?)
+    case appsIcon(id: String, reId: String?, bundleIds: [String])
+    case ping(id: String, reId: String?, t: Double)
+    // helper -> app
+    case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
+    case pairOk(id: String, reId: String?, token: String)
+    case pairError(id: String, reId: String?, reason: String)
+    case authOk(id: String, reId: String?)
+    case authError(id: String, reId: String?, reason: String)
     case commandResult(id: String, reId: String?, ok: Bool, error: String?)
+    case appsListResponse(id: String, reId: String?, apps: [AppInfo])
+    case appsIconResponse(id: String, reId: String?, icons: [IconEntry])
+    case pong(id: String, reId: String?, t: Double)
+    case error(id: String, reId: String?, code: String, message: String)
     case unknown(type: String, id: String, reId: String?)
-
-    var id: String {
-        switch self {
-        case let .hello(id, _, _, _, _),
-             let .helloAck(id, _, _, _, _, _),
-             let .ping(id, _, _),
-             let .pong(id, _, _),
-             let .commandExecute(id, _, _),
-             let .commandResult(id, _, _, _),
-             let .unknown(_, id, _):
-            return id
-        }
-    }
 }

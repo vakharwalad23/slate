@@ -1,3 +1,11 @@
-export { commandExecuteMessage, helloMessage, pingMessage } from './messages';
+export {
+  authMessage,
+  commandExecuteMessage,
+  helloMessage,
+  pairConfirmMessage,
+  pairRequestMessage,
+  pingMessage,
+  setDeviceId,
+} from './messages';
 export type { Status, Transport, TransportHandlers } from './transport';
 export { webSocketTransport } from './websocket-transport';

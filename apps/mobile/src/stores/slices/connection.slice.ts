@@ -27,20 +27,34 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     onStatus: (status) => {
       set({ status });
       if (status === 'connected') webSocketTransport.send(helloMessage());
-      if (status === 'disconnected') set({ helper: null });
+      if (status === 'disconnected') {
+        set({ helper: null });
+        get().onSocketDown();
+      }
     },
     onMessage: (message) => {
-      if (message.type === 'hello_ack') {
-        set({
-          helper: {
-            name: message.payload.helperName,
-            version: message.payload.helperVersion,
-            capabilities: message.payload.capabilities,
-          },
-        });
-      } else if (message.type === 'command.result') {
-        const { ok, error } = message.payload;
-        set({ lastResult: { ok, ...(error !== undefined && { error }) } });
+      switch (message.type) {
+        case 'hello_ack':
+          set({
+            helper: {
+              name: message.payload.helperName,
+              version: message.payload.helperVersion,
+              capabilities: message.payload.capabilities,
+            },
+          });
+          get().onHelloAck(message.payload.paired);
+          break;
+        case 'command.result': {
+          const { ok, error } = message.payload;
+          set({ lastResult: { ok, ...(error !== undefined && { error }) } });
+          break;
+        }
+        case 'auth_ok':
+        case 'auth_error':
+        case 'pair_ok':
+        case 'pair_error':
+          get().onAuthMessage(message);
+          break;
       }
     },
   });
@@ -60,8 +74,9 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
       set({ helper: null });
     },
     sendCommand: (command) => {
-      if (get().helper === null) {
-        set({ lastResult: { ok: false, error: 'not connected' } });
+      // Gate on auth, not on the socket: no command runs before the helper has authed this device.
+      if (get().authPhase !== 'paired') {
+        set({ lastResult: { ok: false, error: 'not paired' } });
         return;
       }
       webSocketTransport.send(commandExecuteMessage(command));

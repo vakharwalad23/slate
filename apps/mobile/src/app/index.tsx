@@ -1,29 +1,46 @@
-import { useState } from 'react';
+import { router, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores/store';
 
+const PAIRING_PHASES = ['needs_pairing', 'code_entry', 'confirming', 'auth_error', 'pair_error'];
+
 export default function HomeScreen() {
-  const { status, helper, lastResult, connect, disconnect, sendCommand } = useStore(
-    useShallow((s) => ({
-      status: s.status,
-      helper: s.helper,
-      lastResult: s.lastResult,
-      connect: s.connect,
-      disconnect: s.disconnect,
-      sendCommand: s.sendCommand,
-    })),
-  );
+  const { status, helper, lastResult, authPhase, bootstrapped, connect, disconnect, sendCommand } =
+    useStore(
+      useShallow((s) => ({
+        status: s.status,
+        helper: s.helper,
+        lastResult: s.lastResult,
+        authPhase: s.authPhase,
+        bootstrapped: s.bootstrapped,
+        connect: s.connect,
+        disconnect: s.disconnect,
+        sendCommand: s.sendCommand,
+      })),
+    );
+  const pathname = usePathname();
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('8765');
   const [app, setApp] = useState('Safari');
 
-  const connected = helper !== null;
+  // Drive the pairing route off the auth phase; only push/pop on the edge so it never stacks.
+  useEffect(() => {
+    if (PAIRING_PHASES.includes(authPhase) && pathname === '/') {
+      router.push('/pairing');
+    } else if (authPhase === 'paired' && pathname === '/pairing') {
+      router.back();
+    }
+  }, [authPhase, pathname]);
+
+  const socketUp = status === 'connected';
+  const paired = authPhase === 'paired';
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>slate</Text>
-      <Text style={styles.status}>{connected ? `Connected to ${helper.name}` : status}</Text>
+      <Text style={styles.status}>{paired && helper ? `Paired with ${helper.name}` : status}</Text>
 
       <TextInput
         style={styles.input}
@@ -40,10 +57,14 @@ export default function HomeScreen() {
         keyboardType="number-pad"
         placeholder="port"
       />
-      {connected ? (
+      {socketUp ? (
         <Button title="Disconnect" onPress={disconnect} />
       ) : (
-        <Button title="Connect" onPress={() => connect(host.trim(), Number(port) || 8765)} />
+        <Button
+          title="Connect"
+          onPress={() => connect(host.trim(), Number(port) || 8765)}
+          disabled={!bootstrapped}
+        />
       )}
 
       <View style={styles.divider} />
@@ -58,7 +79,7 @@ export default function HomeScreen() {
       <Button
         title={`Launch ${app}`}
         onPress={() => sendCommand({ kind: 'launch_app', app })}
-        disabled={!connected}
+        disabled={!paired}
       />
 
       {lastResult ? (

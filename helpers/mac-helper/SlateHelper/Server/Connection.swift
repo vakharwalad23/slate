@@ -21,6 +21,7 @@ final class Connection: @unchecked Sendable {
             case .ready:
                 self.receiveNext()
             case .failed, .cancelled:
+                Task { await self.session.endPairing() }
                 self.onClose(self)
             default:
                 break
@@ -30,8 +31,15 @@ final class Connection: @unchecked Sendable {
     }
 
     func close() {
+        // Nilling the handler suppresses the .cancelled callback below, so end pairing here too -
+        // otherwise a registry-initiated close (newest-wins, revoke, port change) leaves a stale code.
+        Task { await session.endPairing() }
         connection.stateUpdateHandler = nil
         connection.cancel()
+    }
+
+    func authedDeviceId() async -> String? {
+        await session.currentDeviceId()
     }
 
     private func receiveNext() {

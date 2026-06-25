@@ -22,8 +22,10 @@ export default function HomeScreen() {
     })),
   );
   const pathname = usePathname();
-  const [host, setHost] = useState('localhost');
-  const [port, setPort] = useState('8765');
+  // Seed from the last successful connection (persisted), not localhost - useless on a phone.
+  const [host, setHost] = useState(() => useStore.getState().host);
+  const [port, setPort] = useState(() => String(useStore.getState().port));
+  const [helperName, setHelperName] = useState<string | null>(null);
 
   const socketUp = status === 'connected';
 
@@ -53,7 +55,7 @@ export default function HomeScreen() {
     const portNumber = Number(port) || 8765;
     const target = host.trim();
     void ensureLocalNetworkPermission().then((granted) => {
-      if (granted) connect(target, portNumber);
+      if (granted) connect(target, portNumber, helperName ?? undefined);
     });
   };
 
@@ -63,9 +65,10 @@ export default function HomeScreen() {
       <Text style={styles.status}>{status}</Text>
 
       <DiscoveryList
-        onSelect={(foundHost, foundPort) => {
+        onSelect={(foundHost, foundPort, name) => {
           setHost(foundHost);
           setPort(String(foundPort));
+          setHelperName(name);
         }}
       />
 
@@ -75,7 +78,7 @@ export default function HomeScreen() {
         onChangeText={setHost}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="host"
+        placeholder="192.168.x.x"
       />
       <TextInput
         style={styles.input}
@@ -90,6 +93,9 @@ export default function HomeScreen() {
         <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
       )}
       <TestConnectionButton host={host.trim()} port={Number(port) || 8765} />
+
+      <View style={styles.divider} />
+      <Button title="Logs" onPress={() => router.push('/logs')} />
     </View>
   );
 }
@@ -99,4 +105,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '600', textAlign: 'center' },
   status: { fontSize: 14, opacity: 0.6, textAlign: 'center', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
+  divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
 });

@@ -101,6 +101,7 @@ enum Message: Sendable {
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
     case pairOk(id: String, reId: String?, token: String)
     case pairError(id: String, reId: String?, reason: String)
+    case pairPending(id: String, reId: String?, expiresInMs: Double)
     case authOk(id: String, reId: String?)
     case authError(id: String, reId: String?, reason: String)
     case commandResult(id: String, reId: String?, ok: Bool, error: String?)

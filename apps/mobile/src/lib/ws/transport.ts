@@ -11,7 +11,11 @@ export type TransportHandlers = {
 // A future SshTransport implements the same interface.
 export interface Transport {
   setHandlers(handlers: TransportHandlers): void;
-  connect(host: string, port: number): void;
+  // helperName is the helper's Bonjour service name (when connected via discovery); it lets the
+  // transport rediscover the helper at a new IP after a network change.
+  connect(host: string, port: number, helperName?: string): void;
   disconnect(): void;
   send(message: Message): void;
+  // Releases the app-lifetime NetInfo subscription; only needed on full teardown / Fast Refresh.
+  teardown?(): void;
 }

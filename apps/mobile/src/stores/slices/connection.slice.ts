@@ -13,7 +13,8 @@ export type ConnectionSlice = {
   lastResult: CommandResult | null;
   host: string;
   port: number;
-  connect: (host: string, port: number) => void;
+  helperName: string | null;
+  connect: (host: string, port: number, helperName?: string) => void;
   disconnect: () => void;
   sendCommand: (command: Command) => void;
 };
@@ -47,6 +48,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         case 'command.result': {
           const { ok, error } = message.payload;
           set({ lastResult: { ok, ...(error !== undefined && { error }) } });
+          if (!ok) get().logError(`command failed: ${error ?? 'unknown'}`);
           break;
         }
         case 'auth_ok':
@@ -54,6 +56,9 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         case 'pair_ok':
         case 'pair_error':
           get().onAuthMessage(message);
+          break;
+        case 'pair_pending':
+          get().onPairPending(message.payload.expiresInMs);
           break;
         case 'apps.list.response':
           get().ingestAppsResponse(message.payload.apps, message.reId);
@@ -71,11 +76,13 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     status: 'disconnected',
     helper: null,
     lastResult: null,
-    host: 'localhost',
+    host: '',
     port: 8765,
-    connect: (host, port) => {
-      set({ host, port, lastResult: null });
-      webSocketTransport.connect(host, port);
+    helperName: null,
+    connect: (host, port, helperName) => {
+      const name = helperName ?? get().helperName ?? undefined;
+      set({ host, port, lastResult: null, ...(name !== undefined && { helperName: name }) });
+      webSocketTransport.connect(host, port, name);
     },
     disconnect: () => {
       webSocketTransport.disconnect();

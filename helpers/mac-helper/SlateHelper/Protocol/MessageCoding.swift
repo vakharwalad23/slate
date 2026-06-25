@@ -8,6 +8,11 @@ enum MessageDecodeError: Error, Equatable {
 // Lowercased so the phone's z.uuid() accepts it; an unparsed reply is silently dropped at its boundary.
 func newMessageId() -> String { UUID().uuidString.lowercased() }
 
+// Shared coders: re-allocating one per WS frame is the hot path. swift-foundation's coders are internally
+// synchronized and never reconfigured here, so reuse from the connection queue / cooperative pool is safe.
+private nonisolated(unsafe) let sharedDecoder = JSONDecoder()
+private nonisolated(unsafe) let sharedEncoder = JSONEncoder()
+
 private struct Envelope: Decodable {
     let v: Int
     let id: String
@@ -34,6 +39,7 @@ private struct TPayload: Codable { let t: Double }
 private struct CodePayload: Codable { let code: String }
 private struct TokenPayload: Codable { let token: String }
 private struct ReasonPayload: Codable { let reason: String }
+private struct ExpiresInMsPayload: Codable { let expiresInMs: Double }
 private struct BundleIdsPayload: Codable { let bundleIds: [String] }
 private struct ErrorPayload: Codable { let code: String; let message: String }
 
@@ -60,7 +66,7 @@ private struct AppsIconResponsePayload: Encodable { let icons: [IconEntry] }
 
 // safeParse analogue: never throws into the receive loop; drop on failure.
 func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
-    let decoder = JSONDecoder()
+    let decoder = sharedDecoder
     guard let env = try? decoder.decode(Envelope.self, from: data) else { return .failure(.badEnvelope) }
     guard env.v == PROTOCOL_VERSION else { return .failure(.badEnvelope) }
     do {
@@ -101,7 +107,7 @@ func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
 }
 
 func encodeMessage(_ message: Message) throws -> Data {
-    let encoder = JSONEncoder()
+    let encoder = sharedEncoder
     let v = PROTOCOL_VERSION
     switch message {
     case let .hello(id, reId, deviceId, deviceName, appVersion):
@@ -128,6 +134,8 @@ func encodeMessage(_ message: Message) throws -> Data {
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_ok", payload: TokenPayload(token: token)))
     case let .pairError(id, reId, reason):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_error", payload: ReasonPayload(reason: reason)))
+    case let .pairPending(id, reId, expiresInMs):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_pending", payload: ExpiresInMsPayload(expiresInMs: expiresInMs)))
     case let .authOk(id, reId):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "auth_ok", payload: EmptyPayload()))
     case let .authError(id, reId, reason):

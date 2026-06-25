@@ -1,7 +1,8 @@
 import Foundation
 
 enum HelperConfig {
-    static let name = "slate helper"
+    // The Mac's computer name (so the phone shows "<name>'s MacBook" in the list), or a static fallback.
+    static let name = Host.current().localizedName ?? "slate helper"
     static let version = "0.1.0"
     static let port: UInt16 = 8765
     static let serviceType = "_slate._tcp"

@@ -7,13 +7,20 @@ import { type AppsSlice, createAppsSlice } from './slices/apps.slice';
 import { type ConnectionSlice, createConnectionSlice } from './slices/connection.slice';
 import { createDeckSlice, type DeckSlice } from './slices/deck.slice';
 import { createDiscoverySlice, type DiscoverySlice } from './slices/discovery.slice';
+import { createLogsSlice, type LogsSlice } from './slices/logs.slice';
 import { createPairingSlice, type PairingSlice } from './slices/pairing.slice';
 
-export type RootState = ConnectionSlice & PairingSlice & DeckSlice & AppsSlice & DiscoverySlice;
+export type RootState = ConnectionSlice &
+  PairingSlice &
+  DeckSlice &
+  AppsSlice &
+  DiscoverySlice &
+  LogsSlice;
 
 const MetaSchema = z.object({
   host: z.string().optional(),
   port: z.number().optional(),
+  helperName: z.string().nullable().optional(),
   currentDeckId: z.string().nullable().optional(),
   currentPageId: z.string().nullable().optional(),
 });
@@ -29,6 +36,7 @@ export const useStore = create<RootState>()(
         ...createDeckSlice(...a),
         ...createAppsSlice(...a),
         ...createDiscoverySlice(...a),
+        ...createLogsSlice(...a),
       }),
       {
         name: 'slate-root',
@@ -37,6 +45,7 @@ export const useStore = create<RootState>()(
         partialize: (state) => ({
           host: state.host,
           port: state.port,
+          helperName: state.helperName,
           decks: state.decks,
           currentDeckId: state.currentDeckId,
           currentPageId: state.currentPageId,
@@ -50,6 +59,7 @@ export const useStore = create<RootState>()(
             ...(meta.success && {
               ...(meta.data.host !== undefined && { host: meta.data.host }),
               ...(meta.data.port !== undefined && { port: meta.data.port }),
+              ...(meta.data.helperName !== undefined && { helperName: meta.data.helperName }),
               ...(meta.data.currentDeckId !== undefined && {
                 currentDeckId: meta.data.currentDeckId,
               }),

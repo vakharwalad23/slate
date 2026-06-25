@@ -2,28 +2,30 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores/store';
 
-export function DiscoveryList({ onSelect }: { onSelect: (host: string, port: number) => void }) {
-  const { found, discoveryGate, scanning } = useStore(
-    useShallow((s) => ({ found: s.found, discoveryGate: s.discoveryGate, scanning: s.scanning })),
+export function DiscoveryList({
+  onSelect,
+}: {
+  onSelect: (host: string, port: number, name: string) => void;
+}) {
+  const { found, scanning } = useStore(
+    useShallow((s) => ({ found: s.found, scanning: s.scanning })),
   );
 
-  if (discoveryGate === 'disabled') {
+  if (found.length === 0) {
     return (
       <Text style={styles.note}>
-        Auto-discovery unavailable on this device; enter the host manually.
+        {scanning ? 'Scanning your Wi-Fi for the Mac...' : 'No helper found. Enter the host below.'}
       </Text>
     );
   }
-  if (found.length === 0) {
-    return <Text style={styles.note}>{scanning ? 'Searching...' : ''}</Text>;
-  }
+
   return (
     <View style={styles.list}>
       {found.map((helper) => (
         <Pressable
           key={`${helper.host}:${helper.port}`}
           style={styles.row}
-          onPress={() => onSelect(helper.host, helper.port)}
+          onPress={() => onSelect(helper.host, helper.port, helper.name)}
         >
           <Text style={styles.name}>{helper.name}</Text>
           <Text style={styles.addr}>

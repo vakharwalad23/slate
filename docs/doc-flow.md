@@ -53,3 +53,26 @@ app: need icon(bundleId)
 Auto-reconnect with backoff; status pill Connected / Reconnecting / Offline. JSON `ping`/`pong`
 every ~10s; drop + reconnect after a missed window. Commands while offline are rejected with a
 toast, never silently dropped.
+
+## Network-change rediscovery
+
+```
+(Mac IP changes)
+helper: NetworkMonitor detects path change (debounced)
+helper: BonjourAdvertiser re-registers _slate._tcp with new address
+app: repeated direct reconnect misses trigger lib/discovery/rediscovery.ts
+app: browses _slate._tcp for stored helperName -> resolves new host:port
+app: reconnects + re-auths as normal
+```
+
+Exactly one socket and one browse are live at any time; generation/desired guards prevent races
+during the IP-change switchover.
+
+## Revoke
+
+```
+helper: user revokes device from menu
+helper: TokenStore removes token
+helper: ConnectionRegistry.closeIfDevice -> closes live socket for that device
+app: receives close, enters reconnect path -> auth fails -> enters needs_pairing
+```

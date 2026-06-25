@@ -29,18 +29,32 @@ subscription reconnects immediately when connectivity returns. Inbound frames ar
 `MessageSchema.safeParse` and dropped on failure. `messages.ts` builds outbound `hello` / `ping` /
 `command.execute` (uuids from `expo-crypto`).
 
+`connect()` accepts an optional `helperName` (the Bonjour service name). After repeated direct
+reconnect misses, `lib/discovery/rediscovery.ts` browses for that service name and follows it to
+a new IP (network-change auto re-sync). Exactly one socket and one browse are kept live at any
+time; generation/desired invariants guard against races during the switchover.
+
+**Security boundary (ws://):** WSS/TLS cert-pinning is not implemented - RN's built-in WebSocket
+lacks TLS-trust customization (a custom native module would be required). ws:// stays; the security
+boundary is the pairing/auth gate (no unpaired device connects, no device executes commands without
+auth). This is a trusted-LAN-only limitation.
+
 ## App state - `apps/mobile/src/stores`
 
-One curried Zustand root store composed of five slices, all wrapped in `devtools(persist(...))`.
+One curried Zustand root store composed of six slices, all wrapped in `devtools(persist(...))`.
 `connection.slice.ts` owns WebSocket lifecycle and is the message hub: inbound `hello_ack`,
 `pair_*`, `auth_*`, and `apps.*` frames are forwarded to the relevant slices; `sendCommand` is
-gated on `authPhase === 'paired'`. `pairing.slice.ts` runs an 8-phase `AuthPhase` state machine
+gated on `authPhase === 'paired'`. The slice also stores and persists the `helperName` (Bonjour
+service name) set when connecting via discovery, and passes it to `connect()` to enable
+network-change rediscovery. `pairing.slice.ts` runs an 8-phase `AuthPhase` state machine
 (idle / authenticating / needs_pairing / code_entry / confirming / paired / auth_error /
 pair_error). `deck.slice.ts` holds the Zod-validated deck model (CRUD, persisted, validated on
 rehydration via `merge`). `apps.slice.ts` drives `apps.list` and `apps.icon` requests and holds
 the icon cache keyed by `bundleId + iconVersion`. `discovery.slice.ts` controls zeroconf browsing
-(gated - browse only when the user opens discovery UI). The import edge is always store ->
-transport, never reversed.
+(gated - browse only when the user opens discovery UI). `logs.slice.ts` is a bounded ring buffer
+of errors/warnings (command failures, auth errors, pair errors, discovery failures); shown in
+`app/logs.tsx`, linked from the connect screen. The import edge is always store -> transport,
+never reversed.
 
 ## Helper - `helpers/node-helper`
 
@@ -80,9 +94,13 @@ loop (works around the macOS 26 Tahoe focus quirk); `run_shortcut`; `run_applesc
 `ProcessRunner` is injectable for unit tests. `AppActivator.swift` isolates the Tahoe-specific
 retry logic.
 
-**Auth/** - `PairingService` (actor) generates a 6-digit code (TTL <=120 s), rate-limits after ~5
-failed attempts. `TokenStore` (actor) stores a 32-byte token as 0600 JSON in Application Support;
-supports revoke per device. `AuthGate` checks the per-session authed flag before routing commands.
+**Auth/** - `PairingService` (actor) generates a 6-digit code (TTL <=120 s). Lockout is
+actor-level: `totalFailures` + exponential `lockedUntil` cannot be reset by opening a new
+connection. An unexpired code is reused on repeat `pair_request` rather than rerolled.
+`scripts/brute-force-pairing.test.mjs` validates the lockout. `TokenStore` (actor) stores a
+32-byte token as 0600 JSON in Application Support; per-device revoke calls
+`ConnectionRegistry.closeIfDevice` to force-drop the live socket immediately. `AuthGate` checks
+the per-session authed flag before routing commands.
 
 **Apps/** - `AppEnumerator` scans `/Applications` and standard app directories. `AppCatalog` (actor)
 caches the enumeration result.
@@ -94,20 +112,36 @@ and encodes as base64 PNG. One icon per WS message to avoid large-frame OOM on A
 grant; result surfaced in the menu UI.
 
 **Menu UI** - `MenuContent.swift` (`.window` style `MenuBarExtra`): shows server status,
-`host:port`, current pairing code, paired devices with per-device revoke, and Accessibility state.
+`host:port`, current pairing code, paired devices with per-device revoke, Accessibility state,
+log viewer (bounded ring buffer of warnings/errors via `LogStore`), and open-at-login toggle.
+
+**Settings** - `Settings.swift` persists the listen port in `UserDefaults`; menu-editable. A port
+change restarts the `NWListener` and re-advertises Bonjour.
+
+**Launch at login** - `LoginItem.swift` uses `SMAppService.mainApp` to register/unregister.
+
+**Network-change re-advertise** - `NetworkMonitor.swift` (NWPathMonitor, debounced) re-registers
+Bonjour when the Mac's LAN IP changes so the phone can rediscover after a network switch.
 
 **Distribution** - `scripts/make-dmg.sh` builds a self-signed drag-and-drop DMG (no notarization);
 users clear quarantine with `xattr -dr com.apple.quarantine`.
 
 ## Pairing & auth
 
-`pair_request` -> helper shows 6-digit code (TTL <=120 s, rate-limited) -> app sends
-`pair_confirm { code }` -> helper replies `pair_ok { token }`. On every subsequent reconnect the
-app sends `auth { token }` -> `auth_ok` before any command. No `command.execute`, `apps.list`, or
+`pair_request` -> helper shows 6-digit code (TTL <=120 s, brute-force-resistant lockout) -> app
+sends `pair_confirm { code }` -> helper replies `pair_ok { token }`. The lockout is actor-level
+(`totalFailures` + exponential `lockedUntil`); spamming from a new connection cannot reset it; an
+unexpired code is reused rather than rerolled. On every subsequent reconnect the app sends
+`auth { token }` -> `auth_ok` before any command. No `command.execute`, `apps.list`, or
 `apps.icon` is processed before `auth_ok` (`AuthGate` on the Swift side, `authPhase === 'paired'`
 gate in `connection.slice.ts` on the mobile side). Token stored in `expo-secure-store`
 (`lib/secure/token-store.ts`) with a stable `deviceId`; in-memory cache avoids repeated keychain
-reads. Per-device revoke supported on the helper via `TokenStore`.
+reads. Per-device revoke on the helper via `TokenStore` force-drops the live socket immediately via
+`ConnectionRegistry.closeIfDevice`.
+
+Transport uses ws:// (not wss://); TLS cert-pinning is not implemented (RN's WebSocket API lacks
+TLS-trust hooks). The security boundary is the pairing/auth gate on both sides. This is a
+trusted-LAN-only design.
 
 ## Icon cache
 

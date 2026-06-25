@@ -49,6 +49,11 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
         },
         () => gen !== scanGeneration,
       )
+        .then((scanned) => {
+          if (!scanned && gen === scanGeneration) {
+            get().logWarn('no Wi-Fi subnet yet; enter the host manually');
+          }
+        })
         .catch(() => get().logWarn('network scan failed'))
         .finally(() => {
           if (gen === scanGeneration) set({ scanning: false });

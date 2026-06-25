@@ -13,12 +13,14 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
+    "@shopify/flash-list": "2.0.2",
     "@slate/protocol": "workspace:*",
     "expo": "~56.0.12",
     "expo-build-properties": "~56.0.19",
     "expo-constants": "~56.0.18",
     "expo-crypto": "~56.0.4",
     "expo-dev-client": "~56.0.20",
+    "expo-image": "~56.0.11",
     "expo-linking": "~56.0.14",
     "expo-router": "~56.2.11",
     "expo-secure-store": "~56.0.4",
@@ -32,6 +34,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-worklets": "0.8.3",
+    "react-native-zeroconf": "^0.14.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

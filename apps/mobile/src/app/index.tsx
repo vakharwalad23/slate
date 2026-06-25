@@ -1,29 +1,73 @@
-import { useState } from 'react';
+import { router, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { DiscoveryList } from '@/components/DiscoveryList';
+import { TestConnectionButton } from '@/components/TestConnectionButton';
+import { ensureLocalNetworkPermission } from '@/lib/permissions/local-network';
 import { useStore } from '@/stores/store';
 
+const PAIRING_PHASES = ['needs_pairing', 'code_entry', 'confirming', 'auth_error', 'pair_error'];
+
 export default function HomeScreen() {
-  const { status, helper, lastResult, connect, disconnect, sendCommand } = useStore(
+  const { status, authPhase, bootstrapped, connect, disconnect, startScan, stopScan } = useStore(
     useShallow((s) => ({
       status: s.status,
-      helper: s.helper,
-      lastResult: s.lastResult,
+      authPhase: s.authPhase,
+      bootstrapped: s.bootstrapped,
       connect: s.connect,
       disconnect: s.disconnect,
-      sendCommand: s.sendCommand,
+      startScan: s.startScan,
+      stopScan: s.stopScan,
     })),
   );
+  const pathname = usePathname();
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('8765');
-  const [app, setApp] = useState('Safari');
 
-  const connected = helper !== null;
+  const socketUp = status === 'connected';
+
+  // Browse for helpers while idle on this screen; stop once connected or away.
+  useEffect(() => {
+    if (bootstrapped && !socketUp && pathname === '/') {
+      startScan();
+      return () => stopScan();
+    }
+    return undefined;
+  }, [bootstrapped, socketUp, pathname, startScan, stopScan]);
+
+  // Single nav driver (this root screen stays mounted): pairing -> deck on the phase edges.
+  useEffect(() => {
+    if (PAIRING_PHASES.includes(authPhase) && pathname === '/') {
+      router.push('/pairing');
+    } else if (authPhase === 'paired' && pathname === '/pairing') {
+      router.back();
+    } else if (authPhase === 'paired' && pathname === '/') {
+      router.push('/deck');
+    } else if (authPhase === 'idle' && pathname === '/deck') {
+      router.back();
+    }
+  }, [authPhase, pathname]);
+
+  const doConnect = () => {
+    const portNumber = Number(port) || 8765;
+    const target = host.trim();
+    void ensureLocalNetworkPermission().then((granted) => {
+      if (granted) connect(target, portNumber);
+    });
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>slate</Text>
-      <Text style={styles.status}>{connected ? `Connected to ${helper.name}` : status}</Text>
+      <Text style={styles.status}>{status}</Text>
+
+      <DiscoveryList
+        onSelect={(foundHost, foundPort) => {
+          setHost(foundHost);
+          setPort(String(foundPort));
+        }}
+      />
 
       <TextInput
         style={styles.input}
@@ -40,32 +84,12 @@ export default function HomeScreen() {
         keyboardType="number-pad"
         placeholder="port"
       />
-      {connected ? (
+      {socketUp ? (
         <Button title="Disconnect" onPress={disconnect} />
       ) : (
-        <Button title="Connect" onPress={() => connect(host.trim(), Number(port) || 8765)} />
+        <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
       )}
-
-      <View style={styles.divider} />
-
-      <TextInput
-        style={styles.input}
-        value={app}
-        onChangeText={setApp}
-        autoCapitalize="words"
-        placeholder="app name"
-      />
-      <Button
-        title={`Launch ${app}`}
-        onPress={() => sendCommand({ kind: 'launch_app', app })}
-        disabled={!connected}
-      />
-
-      {lastResult ? (
-        <Text style={lastResult.ok ? styles.ok : styles.err}>
-          {lastResult.ok ? 'OK' : `Error: ${lastResult.error ?? 'unknown'}`}
-        </Text>
-      ) : null}
+      <TestConnectionButton host={host.trim()} port={Number(port) || 8765} />
     </View>
   );
 }
@@ -75,7 +99,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '600', textAlign: 'center' },
   status: { fontSize: 14, opacity: 0.6, textAlign: 'center', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
-  ok: { color: '#2e7d32', textAlign: 'center', fontSize: 14 },
-  err: { color: '#c62828', textAlign: 'center', fontSize: 14 },
 });

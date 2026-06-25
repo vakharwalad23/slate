@@ -73,7 +73,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     status: 'disconnected',
     helper: null,
     lastResult: null,
-    host: 'localhost',
+    host: '',
     port: 8765,
     helperName: null,
     connect: (host, port, helperName) => {

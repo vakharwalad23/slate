@@ -22,8 +22,9 @@ export default function HomeScreen() {
     })),
   );
   const pathname = usePathname();
-  const [host, setHost] = useState('localhost');
-  const [port, setPort] = useState('8765');
+  // Seed from the last successful connection (persisted), not localhost - useless on a phone.
+  const [host, setHost] = useState(() => useStore.getState().host);
+  const [port, setPort] = useState(() => String(useStore.getState().port));
   const [helperName, setHelperName] = useState<string | null>(null);
 
   const socketUp = status === 'connected';
@@ -77,7 +78,7 @@ export default function HomeScreen() {
         onChangeText={setHost}
         autoCapitalize="none"
         autoCorrect={false}
-        placeholder="host"
+        placeholder="192.168.x.x"
       />
       <TextInput
         style={styles.input}

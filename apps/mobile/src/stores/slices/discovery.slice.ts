@@ -1,50 +1,65 @@
 import type { StateCreator } from 'zustand';
+import { scanForHelpers } from '@/lib/discovery/subnet-scan';
 import { type BrowseHandle, type Found, startBrowse } from '@/lib/discovery/zeroconf';
 import type { RootState } from '@/stores/store';
 
-// The browse handle is not serializable, so it lives outside the store.
-let handle: BrowseHandle | null = null;
+const SCAN_PORT = 8765;
 
-type DiscoveryGate = 'unknown' | 'enabled' | 'disabled';
+// Not serializable, so kept outside the store. scanGeneration cancels an in-flight subnet scan.
+let handle: BrowseHandle | null = null;
+let scanGeneration = 0;
 
 export type DiscoverySlice = {
-  discoveryGate: DiscoveryGate;
   found: Found[];
   scanning: boolean;
   startScan: () => void;
   stopScan: () => void;
 };
 
-export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlice> = (
-  set,
-  get,
-) => ({
-  discoveryGate: 'unknown',
-  found: [],
-  scanning: false,
-
-  startScan: () => {
-    if (get().scanning) return;
-    set({ found: [], scanning: true });
-    handle = startBrowse(
-      (found) => {
-        if (!get().found.some((f) => f.host === found.host && f.port === found.port)) {
-          set({ found: [...get().found, found] });
-        }
-      },
-      () => set({ discoveryGate: 'disabled' }),
-    );
-    if (handle === null) {
-      get().logWarn('discovery unavailable on this device');
-      set({ discoveryGate: 'disabled', scanning: false });
-    } else {
-      set({ discoveryGate: 'enabled' });
+export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlice> = (set, get) => {
+  const addFound = (name: string, host: string, port: number) => {
+    if (!get().found.some((f) => f.host === host)) {
+      set({ found: [...get().found, { name, host, port }] });
     }
-  },
+  };
 
-  stopScan: () => {
-    handle?.stop();
-    handle = null;
-    set({ scanning: false });
-  },
-});
+  return {
+    found: [],
+    scanning: false,
+
+    startScan: () => {
+      if (get().scanning) return;
+      scanGeneration += 1;
+      const gen = scanGeneration;
+      set({ found: [], scanning: true });
+
+      // mDNS where it works (instant); a no-op where the native module is unavailable.
+      handle = startBrowse(
+        (found) => {
+          if (gen === scanGeneration) addFound(found.name, found.host, found.port);
+        },
+        () => {},
+      );
+
+      // Subnet probe: the reliable path that finds the helper without mDNS.
+      void scanForHelpers(
+        SCAN_PORT,
+        (host, name) => {
+          if (gen === scanGeneration) addFound(name, host, SCAN_PORT);
+        },
+        () => gen !== scanGeneration,
+      )
+        .catch(() => get().logWarn('network scan failed'))
+        .finally(() => {
+          if (gen === scanGeneration) set({ scanning: false });
+        });
+    },
+
+    stopScan: () => {
+      scanGeneration += 1;
+      handle?.stop();
+      handle = null;
+      set({ scanning: false });
+    },
+  };
+};

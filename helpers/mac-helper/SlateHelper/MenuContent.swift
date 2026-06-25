@@ -3,7 +3,8 @@ import SwiftUI
 struct MenuContent: View {
     @Bindable var status: AppStatus
     @State private var portText = ""
-    @State private var revokeTarget: PairedDevice?
+    // Inline confirm, not .confirmationDialog: presentation APIs are broken inside a .window MenuBarExtra.
+    @State private var confirmingRevokeId: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -93,11 +94,23 @@ struct MenuContent: View {
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("Revoke", role: .destructive) { revokeTarget = device }
+                        if confirmingRevokeId == device.id {
+                            Button("Cancel") { confirmingRevokeId = nil }
+                                .buttonStyle(.borderless)
+                                .pointingHandCursor()
+                            Button("Confirm", role: .destructive) {
+                                Task { await status.revoke(device.id); confirmingRevokeId = nil }
+                            }
                             .buttonStyle(.borderless)
                             .pointingHandCursor()
-                            .accessibilityLabel("Revoke \(device.deviceName)")
-                            .help("Unpair this device and drop its connection")
+                            .accessibilityLabel("Confirm revoke \(device.deviceName)")
+                        } else {
+                            Button("Revoke", role: .destructive) { confirmingRevokeId = device.id }
+                                .buttonStyle(.borderless)
+                                .pointingHandCursor()
+                                .accessibilityLabel("Revoke \(device.deviceName)")
+                                .help("Unpair this device and drop its connection")
+                        }
                     }
                     .font(.caption)
                     .padding(.vertical, 3)
@@ -153,14 +166,6 @@ struct MenuContent: View {
         }
         .padding(12)
         .frame(width: 280)
-        .confirmationDialog(
-            "Revoke \(revokeTarget?.deviceName ?? "this device")?",
-            isPresented: Binding(get: { revokeTarget != nil }, set: { if !$0 { revokeTarget = nil } }),
-            presenting: revokeTarget
-        ) { device in
-            Button("Revoke", role: .destructive) { Task { await status.revoke(device.id) } }
-            Button("Cancel", role: .cancel) {}
-        }
         .task {
             status.refreshAccessibility()
             status.refreshLoginItem()

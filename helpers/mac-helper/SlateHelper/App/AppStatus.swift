@@ -12,6 +12,7 @@ final class AppStatus {
     var accessibilityTrusted = false
     var openAtLogin = false
     var port: UInt16 = HelperConfig.port
+    var restarting = false
     let log = LogStore()
 
     @ObservationIgnored var tokenStore: TokenStore?
@@ -43,6 +44,7 @@ final class AppStatus {
     func applyPort(_ newPort: UInt16) {
         Settings.port = newPort
         port = newPort
+        restarting = true
         let action = onChangePort
         Task { await action?(newPort) }
     }

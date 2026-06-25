@@ -97,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 if state == "running" {
                     status.serverRunning = true
+                    status.restarting = false
                 } else if state.hasPrefix("error") {
                     status.lastError = state
                     status.log.error(state)

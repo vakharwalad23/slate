@@ -54,6 +54,8 @@ actor ClientSession {
             case .expired:
                 send(.pairError(id: newMessageId(), reId: id, reason: "expired"))
             case .locked:
+                cancelPairingLoop()
+                services.onPairingCode(nil, nil)
                 send(.pairError(id: newMessageId(), reId: id, reason: "locked"))
             }
 
@@ -120,7 +122,10 @@ actor ClientSession {
 
     // Mint or reuse the code, push it to the menu + app, and return seconds until it expires (nil to stop).
     private func pushNextCode(replyId: String?) async -> Double? {
-        switch await services.pairing.beginPairing() {
+        let result = await services.pairing.beginPairing()
+        // pair_ok may have cancelled us during the await; do not re-assert a stale code.
+        if Task.isCancelled { return nil }
+        switch result {
         case let .code(code, expiresAt):
             services.onPairingCode(code, expiresAt)
             let remaining = expiresAt.timeIntervalSinceNow

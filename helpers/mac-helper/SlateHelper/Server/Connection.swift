@@ -31,6 +31,9 @@ final class Connection: @unchecked Sendable {
     }
 
     func close() {
+        // Nilling the handler suppresses the .cancelled callback below, so end pairing here too -
+        // otherwise a registry-initiated close (newest-wins, revoke, port change) leaves a stale code.
+        Task { await session.endPairing() }
         connection.stateUpdateHandler = nil
         connection.cancel()
     }

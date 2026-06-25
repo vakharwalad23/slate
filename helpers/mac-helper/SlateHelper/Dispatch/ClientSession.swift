@@ -8,12 +8,15 @@ actor ClientSession {
     private var authed = false
     private var deviceId: String?
     private var deviceName: String?
+    private var send: (@Sendable (Message) -> Void)?
+    private var pairingTask: Task<Void, Never>?
 
     init(services: HelperServices) {
         self.services = services
     }
 
     func handle(_ message: Message, send: @escaping @Sendable (Message) -> Void) async {
+        self.send = send
         switch message {
         case let .hello(id, _, helloDeviceId, helloDeviceName, _):
             deviceId = helloDeviceId
@@ -29,12 +32,9 @@ actor ClientSession {
             send(.pong(id: newMessageId(), reId: id, t: t))
 
         case let .pairRequest(id, _):
-            switch await services.pairing.beginPairing() {
-            case let .code(code):
-                services.onPairingCode(code)
-            case .locked:
-                send(.pairError(id: newMessageId(), reId: id, reason: "locked"))
-            }
+            // Auto-regenerate: the loop re-mints a fresh code each time the displayed one expires, so the
+            // menu never shows a dead code; it stops on pair_ok or when the connection closes.
+            await startPairingLoop(replyId: id)
 
         case let .pairConfirm(id, _, code):
             switch await services.pairing.confirm(code: code) {
@@ -45,7 +45,8 @@ actor ClientSession {
                 }
                 let token = await services.tokenStore.issue(deviceId: deviceId, deviceName: deviceName ?? "device")
                 authed = true
-                services.onPairingCode(nil)
+                cancelPairingLoop()
+                services.onPairingCode(nil, nil)
                 services.onDevicesChanged()
                 send(.pairOk(id: newMessageId(), reId: id, token: token))
             case .badCode:
@@ -100,6 +101,47 @@ actor ClientSession {
         if authed { return true }
         send(.error(id: newMessageId(), reId: id, code: "unauthorized", message: "auth required"))
         return false
+    }
+
+    private func startPairingLoop(replyId: String?) async {
+        cancelPairingLoop()
+        // Mint the first code synchronously so it is live the moment pair_request returns; the loop then
+        // only handles regeneration on expiry. replyId addresses an immediate lockout back to that request.
+        guard let firstWait = await pushNextCode(replyId: replyId) else { return }
+        pairingTask = Task { [weak self] in
+            var wait = firstWait
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(wait))
+                guard let self, let next = await self.pushNextCode(replyId: nil) else { return }
+                wait = next
+            }
+        }
+    }
+
+    // Mint or reuse the code, push it to the menu + app, and return seconds until it expires (nil to stop).
+    private func pushNextCode(replyId: String?) async -> Double? {
+        switch await services.pairing.beginPairing() {
+        case let .code(code, expiresAt):
+            services.onPairingCode(code, expiresAt)
+            let remaining = expiresAt.timeIntervalSinceNow
+            send?(.pairPending(id: newMessageId(), reId: nil, expiresInMs: max(0, remaining) * 1000))
+            return max(0.1, remaining)
+        case .locked:
+            services.onPairingCode(nil, nil)
+            send?(.pairError(id: newMessageId(), reId: replyId, reason: "locked"))
+            return nil
+        }
+    }
+
+    private func cancelPairingLoop() {
+        pairingTask?.cancel()
+        pairingTask = nil
+    }
+
+    // Called when the connection closes so a stale code does not linger in the menu.
+    func endPairing() {
+        cancelPairingLoop()
+        services.onPairingCode(nil, nil)
     }
 
     func currentDeviceId() -> String? { deviceId }

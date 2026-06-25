@@ -9,7 +9,7 @@ struct HelperServices: Sendable {
     let capabilities: Capabilities
     let helperName: String
     let helperVersion: String
-    let onPairingCode: @Sendable (String?) -> Void
+    let onPairingCode: @Sendable (_ code: String?, _ expiresAt: Date?) -> Void
     let onDevicesChanged: @Sendable () -> Void
     let onLog: @Sendable (_ isError: Bool, _ message: String) -> Void
 }

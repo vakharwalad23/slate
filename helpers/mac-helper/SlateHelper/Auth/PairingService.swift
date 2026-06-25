@@ -7,7 +7,7 @@ import Foundation
 actor PairingService {
     enum ConfirmResult: Equatable { case ok, badCode, expired, locked }
     enum BeginResult: Equatable {
-        case code(String)
+        case code(String, expiresAt: Date)
         case locked(retryAfter: TimeInterval)
     }
 
@@ -46,11 +46,12 @@ actor PairingService {
             return .locked(retryAfter: until.timeIntervalSince(now))
         }
         if let session = active, now < session.expiresAt {
-            return .code(session.code)
+            return .code(session.code, expiresAt: session.expiresAt)
         }
         let code = makeCode()
-        active = Session(code: code, expiresAt: now.addingTimeInterval(ttl))
-        return .code(code)
+        let expiresAt = now.addingTimeInterval(ttl)
+        active = Session(code: code, expiresAt: expiresAt)
+        return .code(code, expiresAt: expiresAt)
     }
 
     func confirm(code: String, now: Date = Date()) -> ConfirmResult {

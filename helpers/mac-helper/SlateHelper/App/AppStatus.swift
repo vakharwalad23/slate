@@ -8,6 +8,7 @@ final class AppStatus {
     var boundHost = ""
     var lastError: String?
     var pairingCode: String?
+    var pairingExpiresAt: Date?
     var pairedDevices: [PairedDevice] = []
     var accessibilityTrusted = false
     var openAtLogin = false

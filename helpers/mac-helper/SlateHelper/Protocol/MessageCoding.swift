@@ -34,6 +34,7 @@ private struct TPayload: Codable { let t: Double }
 private struct CodePayload: Codable { let code: String }
 private struct TokenPayload: Codable { let token: String }
 private struct ReasonPayload: Codable { let reason: String }
+private struct ExpiresInMsPayload: Codable { let expiresInMs: Double }
 private struct BundleIdsPayload: Codable { let bundleIds: [String] }
 private struct ErrorPayload: Codable { let code: String; let message: String }
 
@@ -128,6 +129,8 @@ func encodeMessage(_ message: Message) throws -> Data {
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_ok", payload: TokenPayload(token: token)))
     case let .pairError(id, reId, reason):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_error", payload: ReasonPayload(reason: reason)))
+    case let .pairPending(id, reId, expiresInMs):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pair_pending", payload: ExpiresInMsPayload(expiresInMs: expiresInMs)))
     case let .authOk(id, reId):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "auth_ok", payload: EmptyPayload()))
     case let .authError(id, reId, reason):

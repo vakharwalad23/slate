@@ -21,6 +21,7 @@ final class Connection: @unchecked Sendable {
             case .ready:
                 self.receiveNext()
             case .failed, .cancelled:
+                Task { await self.session.endPairing() }
                 self.onClose(self)
             default:
                 break

@@ -57,6 +57,9 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         case 'pair_error':
           get().onAuthMessage(message);
           break;
+        case 'pair_pending':
+          get().onPairPending(message.payload.expiresInMs);
+          break;
         case 'apps.list.response':
           get().ingestAppsResponse(message.payload.apps, message.reId);
           break;

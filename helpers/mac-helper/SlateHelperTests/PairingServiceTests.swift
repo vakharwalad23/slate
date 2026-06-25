@@ -8,8 +8,8 @@ final class PairingServiceTests: XCTestCase {
 
     func testReusesActiveCodeAcrossBeginPairing() async {
         let pairing = service()
-        guard case let .code(first) = await pairing.beginPairing(),
-              case let .code(second) = await pairing.beginPairing() else {
+        guard case let .code(first, _) = await pairing.beginPairing(),
+              case let .code(second, _) = await pairing.beginPairing() else {
             return XCTFail("expected codes")
         }
         XCTAssertEqual(first, second) // not rerolled within the TTL

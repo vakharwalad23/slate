@@ -23,6 +23,7 @@ type AuthReply =
 export type PairingSlice = {
   authPhase: AuthPhase;
   pairFailureReason: string | null;
+  pairExpiresAt: number | null;
   hasStoredToken: boolean;
   bootstrapped: boolean;
   beginPairing: () => void;
@@ -31,12 +32,14 @@ export type PairingSlice = {
   hydrateAuth: () => Promise<void>;
   onHelloAck: (paired: boolean) => void;
   onAuthMessage: (message: AuthReply) => void;
+  onPairPending: (expiresInMs: number) => void;
   onSocketDown: () => void;
 };
 
 export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> = (set, get) => ({
   authPhase: 'idle',
   pairFailureReason: null,
+  pairExpiresAt: null,
   hasStoredToken: false,
   bootstrapped: false,
 
@@ -57,7 +60,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
 
   beginPairing: () => {
     webSocketTransport.send(pairRequestMessage());
-    set({ authPhase: 'code_entry', pairFailureReason: null });
+    set({ authPhase: 'code_entry', pairFailureReason: null, pairExpiresAt: null });
   },
 
   submitCode: (code) => {
@@ -66,7 +69,8 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
     set({ authPhase: 'confirming', pairFailureReason: null });
   },
 
-  resetPairing: () => set({ authPhase: 'needs_pairing', pairFailureReason: null }),
+  resetPairing: () =>
+    set({ authPhase: 'needs_pairing', pairFailureReason: null, pairExpiresAt: null }),
 
   onAuthMessage: (message) => {
     switch (message.type) {
@@ -75,7 +79,12 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
         break;
       case 'pair_ok':
         void writeToken(message.payload.token);
-        set({ authPhase: 'paired', hasStoredToken: true, pairFailureReason: null });
+        set({
+          authPhase: 'paired',
+          hasStoredToken: true,
+          pairFailureReason: null,
+          pairExpiresAt: null,
+        });
         break;
       case 'auth_error':
         void deleteToken();
@@ -84,14 +93,22 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
           authPhase: 'auth_error',
           hasStoredToken: false,
           pairFailureReason: message.payload.reason,
+          pairExpiresAt: null,
         });
         break;
       case 'pair_error':
         get().logWarn(`pairing: ${message.payload.reason}`);
-        set({ authPhase: 'pair_error', pairFailureReason: message.payload.reason });
+        set({
+          authPhase: 'pair_error',
+          pairFailureReason: message.payload.reason,
+          pairExpiresAt: null,
+        });
         break;
     }
   },
 
-  onSocketDown: () => set({ authPhase: 'idle', pairFailureReason: null }),
+  // The helper auto-regenerates the code on expiry and re-sends this, so the countdown resets in lock-step.
+  onPairPending: (expiresInMs) => set({ pairExpiresAt: Date.now() + expiresInMs }),
+
+  onSocketDown: () => set({ authPhase: 'idle', pairFailureReason: null, pairExpiresAt: null }),
 });

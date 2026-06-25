@@ -55,7 +55,14 @@ struct MenuContent: View {
                     .accessibilityLabel("Copy pairing code")
                     .help("Copy the pairing code")
                 }
-                Text("Enter this code on your phone").font(.caption2).foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text("Enter on your phone").font(.caption2).foregroundStyle(.secondary)
+                    if let expiresAt = status.pairingExpiresAt, expiresAt > Date.now {
+                        Text("- expires in").font(.caption2).foregroundStyle(.secondary)
+                        Text(timerInterval: Date.now ... expiresAt, countsDown: true)
+                            .font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
             }
 
             if !status.accessibilityTrusted {

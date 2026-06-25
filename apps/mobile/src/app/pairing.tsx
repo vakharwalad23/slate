@@ -1,19 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores/store';
 
+function formatRemaining(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
 export default function PairingScreen() {
-  const { authPhase, pairFailureReason, helperName, beginPairing, submitCode } = useStore(
-    useShallow((s) => ({
-      authPhase: s.authPhase,
-      pairFailureReason: s.pairFailureReason,
-      helperName: s.helper?.name ?? 'helper',
-      beginPairing: s.beginPairing,
-      submitCode: s.submitCode,
-    })),
-  );
+  const { authPhase, pairFailureReason, pairExpiresAt, helperName, beginPairing, submitCode } =
+    useStore(
+      useShallow((s) => ({
+        authPhase: s.authPhase,
+        pairFailureReason: s.pairFailureReason,
+        pairExpiresAt: s.pairExpiresAt,
+        helperName: s.helper?.name ?? 'helper',
+        beginPairing: s.beginPairing,
+        submitCode: s.submitCode,
+      })),
+    );
   const [code, setCode] = useState('');
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (authPhase !== 'code_entry') return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [authPhase]);
 
   if (authPhase === 'confirming' || authPhase === 'authenticating') {
     return (
@@ -29,6 +43,11 @@ export default function PairingScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Enter the code</Text>
         <Text style={styles.status}>Type the 6-digit code shown on {helperName}.</Text>
+        {pairExpiresAt !== null ? (
+          <Text style={styles.status}>
+            Expires in {formatRemaining(pairExpiresAt - now)} - a new code appears automatically.
+          </Text>
+        ) : null}
         <TextInput
           style={styles.input}
           value={code}

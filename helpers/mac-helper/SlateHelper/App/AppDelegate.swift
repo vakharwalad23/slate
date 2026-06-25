@@ -50,9 +50,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             capabilities: HelperConfig.capabilities,
             helperName: HelperConfig.name,
             helperVersion: HelperConfig.version,
-            onPairingCode: { code in
+            onPairingCode: { code, expiresAt in
                 if let code { logger.notice("pairing code: \(code, privacy: .public)") }
-                Task { @MainActor in status.pairingCode = code }
+                Task { @MainActor in
+                    status.pairingCode = code
+                    status.pairingExpiresAt = expiresAt
+                }
             },
             onDevicesChanged: { Task { @MainActor in await status.refreshDevices() } },
             onLog: { isError, message in

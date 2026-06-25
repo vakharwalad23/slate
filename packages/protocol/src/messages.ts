@@ -44,6 +44,8 @@ export const HelloAckMessage = msg(
 );
 export const PairOkMessage = msg('pair_ok', z.object({ token: z.string() }));
 export const PairErrorMessage = msg('pair_error', z.object({ reason: z.string() }));
+// Time left on the displayed code so the app countdown matches the helper; never carries the code itself.
+export const PairPendingMessage = msg('pair_pending', z.object({ expiresInMs: z.number() }));
 export const AuthOkMessage = msg('auth_ok', z.object({}));
 export const AuthErrorMessage = msg('auth_error', z.object({ reason: z.string() }));
 export const CommandResultMessage = msg(
@@ -82,6 +84,7 @@ export const MessageSchema = z.discriminatedUnion('type', [
   HelloAckMessage,
   PairOkMessage,
   PairErrorMessage,
+  PairPendingMessage,
   AuthOkMessage,
   AuthErrorMessage,
   CommandResultMessage,

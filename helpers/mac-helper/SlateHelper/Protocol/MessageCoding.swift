@@ -8,6 +8,11 @@ enum MessageDecodeError: Error, Equatable {
 // Lowercased so the phone's z.uuid() accepts it; an unparsed reply is silently dropped at its boundary.
 func newMessageId() -> String { UUID().uuidString.lowercased() }
 
+// Shared coders: re-allocating one per WS frame is the hot path. swift-foundation's coders are internally
+// synchronized and never reconfigured here, so reuse from the connection queue / cooperative pool is safe.
+private nonisolated(unsafe) let sharedDecoder = JSONDecoder()
+private nonisolated(unsafe) let sharedEncoder = JSONEncoder()
+
 private struct Envelope: Decodable {
     let v: Int
     let id: String
@@ -61,7 +66,7 @@ private struct AppsIconResponsePayload: Encodable { let icons: [IconEntry] }
 
 // safeParse analogue: never throws into the receive loop; drop on failure.
 func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
-    let decoder = JSONDecoder()
+    let decoder = sharedDecoder
     guard let env = try? decoder.decode(Envelope.self, from: data) else { return .failure(.badEnvelope) }
     guard env.v == PROTOCOL_VERSION else { return .failure(.badEnvelope) }
     do {
@@ -102,7 +107,7 @@ func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
 }
 
 func encodeMessage(_ message: Message) throws -> Data {
-    let encoder = JSONEncoder()
+    let encoder = sharedEncoder
     let v = PROTOCOL_VERSION
     switch message {
     case let .hello(id, reId, deviceId, deviceName, appVersion):

@@ -17,7 +17,7 @@ final class AccessibilityMonitor {
         onChange(PermissionProbe.accessibilityGranted())
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
+                try? await Task.sleep(for: .seconds(30))
                 self?.onChange(PermissionProbe.accessibilityGranted())
             }
         }

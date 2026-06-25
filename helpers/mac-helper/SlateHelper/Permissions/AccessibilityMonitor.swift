@@ -1,10 +1,12 @@
+import ApplicationServices
 import Foundation
 
-// Polls the live Accessibility state so the menu reacts to a grant/revoke without restarting (the
-// state is not observable and AXIsProcessTrusted caches, so a short poll is the reliable approach).
+// AXIsProcessTrusted reflects a mid-run Accessibility grant/revoke; the distributed notification lets us
+// react immediately instead of waiting on the poll, which is only a backstop for the stale-cache edge cases.
 @MainActor
 final class AccessibilityMonitor {
-    private var task: Task<Void, Never>?
+    private var pollTask: Task<Void, Never>?
+    private var observerTask: Task<Void, Never>?
     private let onChange: (Bool) -> Void
 
     init(onChange: @escaping (Bool) -> Void) {
@@ -12,16 +14,27 @@ final class AccessibilityMonitor {
     }
 
     func start() {
-        task = Task { [weak self] in
+        onChange(PermissionProbe.accessibilityGranted())
+        pollTask = Task { [weak self] in
             while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
                 self?.onChange(PermissionProbe.accessibilityGranted())
-                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+        // "com.apple.accessibility.api" is the long-stable signal posted when any app's Accessibility trust
+        // changes; it fires for every app, so we just re-read our own state.
+        let name = Notification.Name("com.apple.accessibility.api")
+        observerTask = Task { [weak self] in
+            for await _ in DistributedNotificationCenter.default().notifications(named: name) {
+                self?.onChange(PermissionProbe.accessibilityGranted())
             }
         }
     }
 
     func stop() {
-        task?.cancel()
-        task = nil
+        pollTask?.cancel()
+        pollTask = nil
+        observerTask?.cancel()
+        observerTask = nil
     }
 }

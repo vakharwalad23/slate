@@ -33,7 +33,7 @@ final class AppStatus {
     }
 
     func refreshAccessibility() {
-        accessibilityTrusted = PermissionProbe.accessibilityTrusted(prompt: false)
+        accessibilityTrusted = PermissionProbe.accessibilityGranted()
     }
 
     func refreshLoginItem() {
@@ -58,6 +58,6 @@ final class AppStatus {
     }
 
     func promptAccessibility() {
-        _ = PermissionProbe.accessibilityTrusted(prompt: true)
+        PermissionProbe.promptAccessibility()
     }
 }

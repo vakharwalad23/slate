@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var services: HelperServices?
     private var server: WebSocketServer?
     private var netMonitor: NetworkMonitor?
+    private var axMonitor: AccessibilityMonitor?
     private var currentPort = HelperConfig.port
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -24,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         netMonitor?.stop()
+        axMonitor?.stop()
         server?.stop()
         bonjour.unregister()
     }
@@ -76,6 +78,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         monitor.start()
         netMonitor = monitor
+
+        let axMonitor = AccessibilityMonitor { [weak self] granted in
+            self?.status.accessibilityTrusted = granted
+        }
+        axMonitor.start()
+        self.axMonitor = axMonitor
     }
 
     // (Re)start the listener on a port and re-advertise Bonjour there; used at launch and on a port change.

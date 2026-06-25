@@ -27,16 +27,16 @@ struct MenuContent: View {
                 Text(code).font(.title2).monospaced()
             }
 
-            Divider()
-            HStack {
-                Label("Accessibility", systemImage: status.accessibilityTrusted ? "checkmark.circle" : "exclamationmark.triangle")
-                    .foregroundStyle(status.accessibilityTrusted ? .green : .orange)
-                Spacer()
-                if !status.accessibilityTrusted {
+            if !status.accessibilityTrusted {
+                Divider()
+                HStack {
+                    Label("Accessibility off", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Spacer()
                     Button("Grant") { status.promptAccessibility() }
                 }
+                .font(.caption)
             }
-            .font(.caption)
 
             Divider()
             Text("Paired devices").font(.caption).foregroundStyle(.secondary)

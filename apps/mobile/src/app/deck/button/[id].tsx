@@ -22,7 +22,16 @@ export default function ButtonEditor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
 
-  const { capabilities, pageId, columns, existing, addButton, editButton, deleteButton } = useStore(
+  const {
+    capabilities,
+    pageId,
+    columns,
+    existing,
+    buttonCount,
+    addButton,
+    editButton,
+    deleteButton,
+  } = useStore(
     useShallow((s) => {
       const deck = s.decks.find((d) => d.id === s.currentDeckId) ?? s.decks[0];
       const page = deck?.pages.find((p) => p.id === s.currentPageId) ?? deck?.pages[0];
@@ -31,17 +40,13 @@ export default function ButtonEditor() {
         pageId: page?.id ?? null,
         columns: page?.columns ?? 4,
         existing: page?.buttons.find((b) => b.id === id),
+        buttonCount: page?.buttons.length ?? 0,
         addButton: s.addButton,
         editButton: s.editButton,
         deleteButton: s.deleteButton,
       };
     }),
   );
-  const buttonCount = useStore((s) => {
-    const deck = s.decks.find((d) => d.id === s.currentDeckId) ?? s.decks[0];
-    const page = deck?.pages.find((p) => p.id === s.currentPageId) ?? deck?.pages[0];
-    return page?.buttons.length ?? 0;
-  });
 
   const initialAction = existing?.action;
   const [kind, setKind] = useState<Kind>(initialAction?.kind ?? 'launch_app');

@@ -199,7 +199,7 @@ function setHandlers(next: TransportHandlers): void {
 
 // Singleton: one NetInfo subscription for the app's lifetime. On regained connectivity while we
 // want to be connected, supersede any pending backoff and reconnect immediately.
-NetInfo.addEventListener((state) => {
+const netInfoUnsub = NetInfo.addEventListener((state) => {
   if (desired !== 'connected') return;
   if (!state.isConnected || state.isInternetReachable === false) return;
   if (socket?.readyState === WebSocket.OPEN) return;
@@ -211,4 +211,9 @@ NetInfo.addEventListener((state) => {
   open();
 });
 
-export const webSocketTransport: Transport = { setHandlers, connect, disconnect, send };
+function teardown(): void {
+  netInfoUnsub();
+  disconnect();
+}
+
+export const webSocketTransport: Transport = { setHandlers, connect, disconnect, send, teardown };

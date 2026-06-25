@@ -12,6 +12,7 @@ function AppIcon({ bundleId, size }: { bundleId: string; size: number }) {
       style={{ width: size, height: size, borderRadius: size * 0.18 }}
       contentFit="contain"
       cachePolicy="memory"
+      recyclingKey={bundleId}
       allowDownscaling
     />
   );

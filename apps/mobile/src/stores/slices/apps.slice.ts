@@ -11,7 +11,7 @@ export type AppsSlice = {
   appsState: AppsRequestState;
   appsReqId: string | null;
   iconVersionByBundleId: Record<string, string>;
-  iconTick: number;
+  iconTickByBundleId: Record<string, number>;
   requestApps: () => void;
   requestIcons: (bundleIds: string[]) => void;
   ingestAppsResponse: (apps: AppInfo[], reId: string | null) => void;
@@ -23,7 +23,7 @@ export const createAppsSlice: StateCreator<RootState, [], [], AppsSlice> = (set,
   appsState: 'idle',
   appsReqId: null,
   iconVersionByBundleId: {},
-  iconTick: 0,
+  iconTickByBundleId: {},
 
   requestApps: () => {
     if (get().helper?.capabilities.appList !== true) {
@@ -55,6 +55,12 @@ export const createAppsSlice: StateCreator<RootState, [], [], AppsSlice> = (set,
 
   ingestIconResponse: (bundleId, pngBase64, iconVersion) => {
     putCachedIcon(bundleId, iconVersion, pngBase64);
-    set((state) => ({ iconTick: state.iconTick + 1 }));
+    // Bump only this id's tick so only its IconView re-renders, not every mounted icon.
+    set((state) => ({
+      iconTickByBundleId: {
+        ...state.iconTickByBundleId,
+        [bundleId]: (state.iconTickByBundleId[bundleId] ?? 0) + 1,
+      },
+    }));
   },
 });

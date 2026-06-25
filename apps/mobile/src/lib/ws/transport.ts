@@ -16,4 +16,6 @@ export interface Transport {
   connect(host: string, port: number, helperName?: string): void;
   disconnect(): void;
   send(message: Message): void;
+  // Releases the app-lifetime NetInfo subscription; only needed on full teardown / Fast Refresh.
+  teardown?(): void;
 }

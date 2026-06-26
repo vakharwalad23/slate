@@ -2,20 +2,12 @@ import type { Capabilities, Command } from '@slate/protocol';
 import * as Crypto from 'expo-crypto';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AppPicker } from '@/components/AppPicker';
 import { DeckButtonCell } from '@/components/DeckButtonCell';
-import {
-  Button,
-  Chip,
-  ICON_CHOICES,
-  Icon,
-  PressableScale,
-  Surface,
-  Text,
-  TextField,
-} from '@/components/ui';
+import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import type { DeckButton, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
@@ -35,6 +27,7 @@ const SWATCHES = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC489
 
 export default function ButtonEditor() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
 
@@ -164,176 +157,195 @@ export default function ButtonEditor() {
   const iconMatches = ICON_CHOICES.filter((name) => name.includes(iconQuery.trim().toLowerCase()));
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: isNew ? 'New button' : 'Edit button' }} />
+    <>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Stack.Screen options={{ title: isNew ? 'New button' : 'Edit button' }} />
 
-      <View style={styles.previewWrap}>
-        <DeckButtonCell
-          button={previewButton}
-          size={96}
-          onPress={() => {}}
-          onLongPress={() => {}}
-        />
-      </View>
-
-      <Text variant="label" tone="secondary">
-        Action
-      </Text>
-      <View style={styles.row}>
-        {availableKinds.map((k) => (
-          <Chip
-            key={k.kind}
-            label={k.label}
-            selected={kind === k.kind}
-            onPress={() => setKind(k.kind)}
-          />
-        ))}
-      </View>
-
-      {isAppKind ? (
-        <View style={styles.field}>
-          <Button
-            title={showPicker ? 'Hide app list' : 'Choose app'}
-            variant="secondary"
-            onPress={() => setShowPicker((v) => !v)}
-          />
-          {showPicker ? (
-            <Surface variant="recessed" radius={radii.md} style={styles.picker}>
-              <AppPicker
-                onSelect={(app) => {
-                  setAppField(app.bundleId);
-                  setIconBundleId(app.bundleId);
-                  setIconSource('app');
-                  if (label.trim() === '') setLabel(app.name);
-                  setShowPicker(false);
-                }}
-              />
-            </Surface>
-          ) : null}
-          <TextField
-            value={appField}
-            onChangeText={setAppField}
-            autoCapitalize="none"
-            placeholder="app name or bundle id"
+        <View style={styles.previewWrap}>
+          <DeckButtonCell
+            button={previewButton}
+            size={96}
+            onPress={() => {}}
+            onLongPress={() => {}}
           />
         </View>
-      ) : null}
 
-      {kind === 'run_shortcut' ? (
-        <TextField
-          value={shortcutName}
-          onChangeText={setShortcutName}
-          placeholder="Shortcut name"
-        />
-      ) : null}
-
-      {kind === 'run_applescript' || kind === 'run_shell' ? (
-        <TextField
-          style={styles.multiline}
-          value={script}
-          onChangeText={setScript}
-          placeholder="script"
-          multiline
-        />
-      ) : null}
-
-      <Text variant="label" tone="secondary">
-        Label
-      </Text>
-      <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
-
-      <Text variant="label" tone="secondary">
-        Icon
-      </Text>
-      <View style={styles.row}>
-        <Chip label="App" selected={iconSource === 'app'} onPress={() => setIconSource('app')} />
-        <Chip
-          label="Emoji"
-          selected={iconSource === 'emoji'}
-          onPress={() => setIconSource('emoji')}
-        />
-        <Chip
-          label="Glyph"
-          selected={iconSource === 'symbol'}
-          onPress={() => setIconSource('symbol')}
-        />
-      </View>
-
-      {iconSource === 'app' ? (
-        <Text variant="caption" tone="secondary">
-          Pick an app above to use its icon.
+        <Text variant="label" tone="secondary">
+          Action
         </Text>
-      ) : null}
-      {iconSource === 'emoji' ? (
-        <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
-      ) : null}
-      {iconSource === 'symbol' ? (
-        <>
-          <TextField
-            value={iconQuery}
-            onChangeText={setIconQuery}
-            placeholder="Search icons"
-            autoCapitalize="none"
-          />
-          <View style={styles.iconGrid}>
-            {iconMatches.map((name) => (
-              <PressableScale
-                key={name}
-                haptics={false}
-                onPress={() => setSymbolName(name)}
-                style={[
-                  styles.iconChoice,
-                  {
-                    borderColor: symbolName === name ? colors.accent : colors.border,
-                    backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
-                  },
-                ]}
-              >
-                <Icon
-                  name={name}
-                  size={26}
-                  color={symbolName === name ? colors.accent : colors.textPrimary}
-                />
-              </PressableScale>
-            ))}
-          </View>
-        </>
-      ) : null}
+        <View style={styles.row}>
+          {availableKinds.map((k) => (
+            <Chip
+              key={k.kind}
+              label={k.label}
+              selected={kind === k.kind}
+              onPress={() => setKind(k.kind)}
+            />
+          ))}
+        </View>
 
-      <Text variant="label" tone="secondary">
-        Color
-      </Text>
-      <View style={styles.row}>
-        <PressableScale
-          haptics={false}
-          onPress={() => setColor(undefined)}
+        {isAppKind ? (
+          <View style={styles.field}>
+            <Button title="Choose app" variant="secondary" onPress={() => setShowPicker(true)} />
+            <TextField
+              value={appField}
+              onChangeText={setAppField}
+              autoCapitalize="none"
+              placeholder="app name or bundle id"
+            />
+          </View>
+        ) : null}
+
+        {kind === 'run_shortcut' ? (
+          <TextField
+            value={shortcutName}
+            onChangeText={setShortcutName}
+            placeholder="Shortcut name"
+          />
+        ) : null}
+
+        {kind === 'run_applescript' || kind === 'run_shell' ? (
+          <TextField
+            style={styles.multiline}
+            value={script}
+            onChangeText={setScript}
+            placeholder="script"
+            multiline
+          />
+        ) : null}
+
+        <Text variant="label" tone="secondary">
+          Label
+        </Text>
+        <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
+
+        <Text variant="label" tone="secondary">
+          Icon
+        </Text>
+        <View style={styles.row}>
+          <Chip label="App" selected={iconSource === 'app'} onPress={() => setIconSource('app')} />
+          <Chip
+            label="Emoji"
+            selected={iconSource === 'emoji'}
+            onPress={() => setIconSource('emoji')}
+          />
+          <Chip
+            label="Glyph"
+            selected={iconSource === 'symbol'}
+            onPress={() => setIconSource('symbol')}
+          />
+        </View>
+
+        {iconSource === 'app' ? (
+          <Text variant="caption" tone="secondary">
+            Pick an app above to use its icon.
+          </Text>
+        ) : null}
+        {iconSource === 'emoji' ? (
+          <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
+        ) : null}
+        {iconSource === 'symbol' ? (
+          <>
+            <TextField
+              value={iconQuery}
+              onChangeText={setIconQuery}
+              placeholder="Search icons"
+              autoCapitalize="none"
+            />
+            <View style={styles.iconGrid}>
+              {iconMatches.map((name) => (
+                <PressableScale
+                  key={name}
+                  haptics={false}
+                  onPress={() => setSymbolName(name)}
+                  style={[
+                    styles.iconChoice,
+                    {
+                      borderColor: symbolName === name ? colors.accent : colors.border,
+                      backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
+                    },
+                  ]}
+                >
+                  <Icon
+                    name={name}
+                    size={26}
+                    color={symbolName === name ? colors.accent : colors.textPrimary}
+                  />
+                </PressableScale>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <Text variant="label" tone="secondary">
+          Color
+        </Text>
+        <View style={styles.row}>
+          <PressableScale
+            haptics={false}
+            onPress={() => setColor(undefined)}
+            style={[
+              styles.swatchNone,
+              { borderColor: color === undefined ? colors.accent : colors.border },
+            ]}
+          >
+            <Text variant="caption" tone="secondary">
+              None
+            </Text>
+          </PressableScale>
+          {SWATCHES.map((c) => (
+            <PressableScale
+              key={c}
+              haptics={false}
+              onPress={() => setColor(c)}
+              style={[
+                styles.swatch,
+                {
+                  backgroundColor: c,
+                  borderColor: color === c ? colors.textPrimary : 'transparent',
+                },
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.actions}>
+          <Button title="Save" variant="primary" onPress={save} />
+          {isNew ? null : <Button title="Delete" variant="danger" onPress={remove} />}
+        </View>
+      </ScrollView>
+
+      <Modal visible={showPicker} animationType="slide" onRequestClose={() => setShowPicker(false)}>
+        <View
           style={[
-            styles.swatchNone,
-            { borderColor: color === undefined ? colors.accent : colors.border },
+            styles.modal,
+            {
+              backgroundColor: colors.bg,
+              paddingTop: insets.top + spacing.md,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left + spacing.lg,
+              paddingRight: insets.right + spacing.lg,
+            },
           ]}
         >
-          <Text variant="caption" tone="secondary">
-            None
-          </Text>
-        </PressableScale>
-        {SWATCHES.map((c) => (
-          <PressableScale
-            key={c}
-            haptics={false}
-            onPress={() => setColor(c)}
-            style={[
-              styles.swatch,
-              { backgroundColor: c, borderColor: color === c ? colors.textPrimary : 'transparent' },
-            ]}
-          />
-        ))}
-      </View>
-
-      <View style={styles.actions}>
-        <Button title="Save" variant="primary" onPress={save} />
-        {isNew ? null : <Button title="Delete" variant="danger" onPress={remove} />}
-      </View>
-    </ScrollView>
+          <View style={styles.modalHeader}>
+            <Text variant="heading">Choose app</Text>
+            <Button title="Close" variant="ghost" onPress={() => setShowPicker(false)} />
+          </View>
+          <View style={styles.modalBody}>
+            <AppPicker
+              onSelect={(app) => {
+                setAppField(app.bundleId);
+                setIconBundleId(app.bundleId);
+                setIconSource('app');
+                if (label.trim() === '') setLabel(app.name);
+                setShowPicker(false);
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -342,7 +354,14 @@ const styles = StyleSheet.create({
   previewWrap: { alignItems: 'center', paddingVertical: spacing.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, alignItems: 'center' },
   field: { gap: spacing.sm },
-  picker: { height: 300, padding: spacing.sm },
+  modal: { flex: 1 },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  modalBody: { flex: 1 },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   iconChoice: {

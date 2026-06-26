@@ -1,10 +1,12 @@
 import { FlashList } from '@shopify/flash-list';
 import type { AppInfo } from '@slate/protocol';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { IconView } from '@/components/IconView';
+import { Text, TextField } from '@/components/ui';
 import { useStore } from '@/stores/store';
+import { spacing } from '@/theme';
 
 export function AppPicker({ onSelect }: { onSelect: (app: AppInfo) => void }) {
   const { apps, appsState } = useStore(
@@ -22,19 +24,22 @@ export function AppPicker({ onSelect }: { onSelect: (app: AppInfo) => void }) {
 
   if (appsState === 'error') {
     return (
-      <Text style={styles.note}>
+      <Text tone="secondary" style={styles.note}>
         This helper has no app list. Enter a bundle id manually below.
       </Text>
     );
   }
   if (appsState === 'loading') {
-    return <Text style={styles.note}>Loading apps...</Text>;
+    return (
+      <Text tone="secondary" style={styles.note}>
+        Loading apps...
+      </Text>
+    );
   }
 
   return (
     <View style={styles.container}>
-      <TextInput
-        style={styles.search}
+      <TextField
         value={query}
         onChangeText={setQuery}
         placeholder="Search apps"
@@ -48,8 +53,10 @@ export function AppPicker({ onSelect }: { onSelect: (app: AppInfo) => void }) {
           <Pressable style={styles.row} onPress={() => onSelect(item)}>
             <IconView icon={{ kind: 'appIcon', bundleId: item.bundleId }} size={32} />
             <View style={styles.text}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.bundle} numberOfLines={1}>
+              <Text variant="body" numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Text variant="caption" tone="secondary" numberOfLines={1}>
                 {item.bundleId}
               </Text>
             </View>
@@ -61,11 +68,8 @@ export function AppPicker({ onSelect }: { onSelect: (app: AppInfo) => void }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, gap: 8 },
-  search: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  container: { flex: 1, gap: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   text: { flex: 1 },
-  name: { fontSize: 16 },
-  bundle: { fontSize: 12, opacity: 0.5 },
-  note: { padding: 16, textAlign: 'center', opacity: 0.6 },
+  note: { padding: spacing.lg, textAlign: 'center' },
 });

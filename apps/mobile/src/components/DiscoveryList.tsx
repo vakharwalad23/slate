@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { PressableScale, Surface, Text } from '@/components/ui';
 import { useStore } from '@/stores/store';
+import { radii, spacing } from '@/theme';
 
 export function DiscoveryList({
   onSelect,
@@ -13,7 +15,7 @@ export function DiscoveryList({
 
   if (found.length === 0) {
     return (
-      <Text style={styles.note}>
+      <Text variant="caption" tone="secondary" style={styles.note}>
         {scanning ? 'Scanning your Wi-Fi for the Mac...' : 'No helper found. Enter the host below.'}
       </Text>
     );
@@ -22,25 +24,24 @@ export function DiscoveryList({
   return (
     <View style={styles.list}>
       {found.map((helper) => (
-        <Pressable
+        <PressableScale
           key={`${helper.host}:${helper.port}`}
-          style={styles.row}
           onPress={() => onSelect(helper.host, helper.port, helper.name)}
         >
-          <Text style={styles.name}>{helper.name}</Text>
-          <Text style={styles.addr}>
-            {helper.host}:{helper.port}
-          </Text>
-        </Pressable>
+          <Surface variant="elevated" radius={radii.lg} style={styles.row}>
+            <Text variant="body">{helper.name}</Text>
+            <Text variant="caption" tone="secondary">
+              {helper.host}:{helper.port}
+            </Text>
+          </Surface>
+        </PressableScale>
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 6 },
-  row: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10 },
-  name: { fontSize: 16 },
-  addr: { fontSize: 12, opacity: 0.5 },
-  note: { fontSize: 13, opacity: 0.5, textAlign: 'center' },
+  list: { gap: spacing.sm },
+  row: { padding: spacing.md, gap: spacing.xs },
+  note: { textAlign: 'center' },
 });

@@ -1,11 +1,14 @@
 import { router, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { DiscoveryList } from '@/components/DiscoveryList';
 import { TestConnectionButton } from '@/components/TestConnectionButton';
+import { Button, connState, StatusPill, Surface, Text, TextField } from '@/components/ui';
 import { ensureLocalNetworkPermission } from '@/lib/permissions/local-network';
 import { useStore } from '@/stores/store';
+import { radii, spacing, useTheme } from '@/theme';
 
 const PAIRING_PHASES = ['needs_pairing', 'code_entry', 'confirming', 'auth_error', 'pair_error'];
 
@@ -22,6 +25,8 @@ export default function HomeScreen() {
     })),
   );
   const pathname = usePathname();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   // Seed from the last successful connection (persisted), not localhost - useless on a phone.
   const [host, setHost] = useState(() => useStore.getState().host);
   const [port, setPort] = useState(() => String(useStore.getState().port));
@@ -60,50 +65,66 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>slate</Text>
-      <Text style={styles.status}>{status}</Text>
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + spacing.xl,
+            paddingBottom: insets.bottom + spacing.xl,
+            paddingLeft: insets.left + spacing.xl,
+            paddingRight: insets.right + spacing.xl,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <Text variant="title">slate</Text>
+          <StatusPill {...connState(status)} />
+        </View>
 
-      <DiscoveryList
-        onSelect={(foundHost, foundPort, name) => {
-          setHost(foundHost);
-          setPort(String(foundPort));
-          setHelperName(name);
-        }}
-      />
+        <DiscoveryList
+          onSelect={(foundHost, foundPort, name) => {
+            setHost(foundHost);
+            setPort(String(foundPort));
+            setHelperName(name);
+          }}
+        />
 
-      <TextInput
-        style={styles.input}
-        value={host}
-        onChangeText={setHost}
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="192.168.x.x"
-      />
-      <TextInput
-        style={styles.input}
-        value={port}
-        onChangeText={setPort}
-        keyboardType="number-pad"
-        placeholder="port"
-      />
-      {socketUp ? (
-        <Button title="Disconnect" onPress={disconnect} />
-      ) : (
-        <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
-      )}
-      <TestConnectionButton host={host.trim()} port={Number(port) || 8765} />
+        <Surface variant="surface" radius={radii.xl} style={styles.card}>
+          <Text variant="label" tone="secondary">
+            Manual connection
+          </Text>
+          <TextField
+            value={host}
+            onChangeText={setHost}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="192.168.x.x"
+          />
+          <TextField
+            value={port}
+            onChangeText={setPort}
+            keyboardType="number-pad"
+            placeholder="port"
+          />
+          {socketUp ? (
+            <Button title="Disconnect" onPress={disconnect} variant="danger" />
+          ) : (
+            <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
+          )}
+          <TestConnectionButton host={host.trim()} port={Number(port) || 8765} />
+        </Surface>
 
-      <View style={styles.divider} />
-      <Button title="Logs" onPress={() => router.push('/logs')} />
+        <Button title="Logs" onPress={() => router.push('/logs')} variant="ghost" />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: '600', textAlign: 'center' },
-  status: { fontSize: 14, opacity: 0.6, textAlign: 'center', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 8 },
+  root: { flex: 1 },
+  content: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg },
+  header: { gap: spacing.md },
+  card: { padding: spacing.lg, gap: spacing.md },
 });

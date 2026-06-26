@@ -1,59 +1,72 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { IconView } from '@/components/IconView';
+import { PressableScale, Text } from '@/components/ui';
 import type { DeckButton } from '@/schemas';
-
-const CELL = 88;
+import { radii, spacing, useTheme } from '@/theme';
 
 export function DeckButtonCell({
   button,
+  size,
   onPress,
   onLongPress,
 }: {
   button: DeckButton;
+  size: number;
   onPress: () => void;
   onLongPress: () => void;
 }) {
+  const { colors } = useTheme();
   return (
-    <Pressable
-      style={[styles.cell, button.color ? { backgroundColor: button.color } : null]}
+    <PressableScale
       onPress={onPress}
       onLongPress={onLongPress}
+      style={[
+        styles.cell,
+        {
+          width: size,
+          height: size,
+          borderRadius: radii.xl,
+          backgroundColor: button.color ?? colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
     >
-      <IconView icon={button.icon} size={44} />
+      <IconView icon={button.icon} size={Math.round(size * 0.44)} />
       {button.label ? (
-        <Text style={styles.label} numberOfLines={1}>
+        <Text variant="caption" tone="secondary" numberOfLines={1} style={styles.label}>
           {button.label}
         </Text>
       ) : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 
-export function AddCell({ onPress }: { onPress: () => void }) {
+export function AddCell({ size, onPress }: { size: number; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
-    <Pressable style={[styles.cell, styles.add]} onPress={onPress}>
-      <Text style={styles.plus}>+</Text>
-    </Pressable>
+    <PressableScale
+      onPress={onPress}
+      haptics={false}
+      style={[
+        styles.cell,
+        styles.add,
+        { width: size, height: size, borderRadius: radii.xl, borderColor: colors.border },
+      ]}
+    >
+      <Text style={[styles.plus, { color: colors.textDisabled }]}>+</Text>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   cell: {
-    width: CELL,
-    height: CELL,
-    borderRadius: 16,
-    backgroundColor: '#f2f2f7',
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: 6,
+    gap: spacing.xs,
+    padding: spacing.sm,
   },
-  add: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderStyle: 'dashed',
-    backgroundColor: 'transparent',
-  },
-  plus: { fontSize: 32, color: '#999' },
-  label: { fontSize: 11, textAlign: 'center' },
+  add: { backgroundColor: 'transparent', borderStyle: 'dashed' },
+  plus: { fontSize: 32, fontWeight: '300' },
+  label: { textAlign: 'center', width: '100%' },
 });

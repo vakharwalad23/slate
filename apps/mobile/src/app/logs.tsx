@@ -1,43 +1,85 @@
 import { router } from 'expo-router';
-import { Button, FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
+import { Button, Surface, Text } from '@/components/ui';
 import { useStore } from '@/stores/store';
+import { spacing, useTheme } from '@/theme';
+
+function formatTime(at: number): string {
+  return new Date(at).toLocaleTimeString();
+}
 
 export default function LogsScreen() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { logs, clearLogs } = useStore(
     useShallow((s) => ({ logs: s.logs, clearLogs: s.clearLogs })),
   );
   const newestFirst = [...logs].reverse();
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: colors.bg,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left + spacing.lg,
+          paddingRight: insets.right + spacing.lg,
+        },
+      ]}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>Logs</Text>
-        <Button title="Clear" onPress={clearLogs} disabled={logs.length === 0} />
+        <Text variant="title">Logs</Text>
+        <View style={styles.actions}>
+          <Button title="Clear" variant="danger" onPress={clearLogs} disabled={logs.length === 0} />
+          <Button title="Back" variant="ghost" onPress={() => router.back()} />
+        </View>
       </View>
+
       {newestFirst.length === 0 ? (
-        <Text style={styles.empty}>No warnings or errors</Text>
+        <View style={styles.emptyWrap}>
+          <Text tone="secondary">No logs</Text>
+        </View>
       ) : (
         <FlatList
           data={newestFirst}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Text style={item.level === 'error' ? styles.err : styles.warn} selectable>
-              {item.message}
-            </Text>
-          )}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => {
+            const levelColor = item.level === 'error' ? colors.danger : colors.warning;
+            return (
+              <Surface
+                variant="recessed"
+                style={[styles.row, { borderLeftWidth: 3, borderLeftColor: levelColor }]}
+              >
+                <Text variant="body" selectable>
+                  {item.message}
+                </Text>
+                <Text variant="caption" tone="secondary">
+                  {formatTime(item.at)}
+                </Text>
+              </Surface>
+            );
+          }}
         />
       )}
-      <Button title="Back" onPress={() => router.back()} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 8 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 22, fontWeight: '600' },
-  empty: { flex: 1, textAlign: 'center', marginTop: 40, opacity: 0.5 },
-  warn: { color: '#b26a00', fontSize: 13, paddingVertical: 4 },
-  err: { color: '#c62828', fontSize: 13, paddingVertical: 4 },
+  root: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  listContent: { paddingTop: spacing.sm, paddingBottom: spacing.xl, gap: spacing.sm },
+  row: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: spacing.xs },
 });

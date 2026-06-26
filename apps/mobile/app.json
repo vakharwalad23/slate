@@ -4,7 +4,7 @@
     "slug": "slate",
     "version": "1.0.0",
     "scheme": "slate",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {

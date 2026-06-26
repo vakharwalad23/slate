@@ -19,7 +19,7 @@ literals without a cast.
 
 `Transport` interface with a `WebSocketTransport` implementation. The app builds a semantic
 `Command` and hands it to the transport; it never calls OS-specific logic directly. This keeps the
-backend pluggable (a future `SshTransport` implements the same interface). The socket is a
+backend pluggable behind a single interface. The socket is a
 module-level singleton: a monotonic `generation` counter plus a `desired` flag invalidate stale
 callbacks so rapid connect/disconnect can never leave two live sockets or duplicate timers, and the
 four handlers are detached before `close()` because RN fires `onclose` asynchronously. A JSON-level
@@ -50,8 +50,10 @@ network-change rediscovery. `pairing.slice.ts` runs an 8-phase `AuthPhase` state
 (idle / authenticating / needs_pairing / code_entry / confirming / paired / auth_error /
 pair_error). `deck.slice.ts` holds the Zod-validated deck model (CRUD, persisted, validated on
 rehydration via `merge`). `apps.slice.ts` drives `apps.list` and `apps.icon` requests and holds
-the icon cache keyed by `bundleId + iconVersion`. `discovery.slice.ts` controls zeroconf browsing
-(gated - browse only when the user opens discovery UI). `logs.slice.ts` is a bounded ring buffer
+the icon cache keyed by `bundleId + iconVersion`. `discovery.slice.ts` (gated to the discovery UI)
+runs an mDNS browse (`zeroconf.ts`, instant where the native module works) alongside a `/24` subnet
+WS-handshake scan (`subnet-scan.ts`, the reliable path since react-native-zeroconf is unavailable on
+the New Arch Android build); results dedupe by host. `logs.slice.ts` is a bounded ring buffer
 of errors/warnings (command failures, auth errors, pair errors, discovery failures); shown in
 `app/logs.tsx`, linked from the connect screen. The import edge is always store -> transport,
 never reversed.
@@ -108,8 +110,10 @@ caches the enumeration result.
 **Icons/** - `IconRenderer` fetches the icon via `NSWorkspace.icon(forFile:)`, scales to 256 px,
 and encodes as base64 PNG. One icon per WS message to avoid large-frame OOM on Android.
 
-**Permissions/** - `PermissionProbe` calls `AXIsProcessTrustedWithOptions` to check Accessibility
-grant; result surfaced in the menu UI.
+**Permissions/** - `PermissionProbe` reads Accessibility trust two ways: `AXIsProcessTrusted`
+(silent, for live state) and `AXIsProcessTrustedWithOptions` (prompts); it never touches Input
+Monitoring. `AccessibilityMonitor` watches the `com.apple.accessibility.api` distributed
+notification (30 s poll backstop) so the menu's grant row reacts to grant/revoke immediately.
 
 **Menu UI** - `MenuContent.swift` (`.window` style `MenuBarExtra`): shows server status,
 `host:port`, current pairing code, paired devices with per-device revoke, Accessibility state,
@@ -131,7 +135,9 @@ users clear quarantine with `xattr -dr com.apple.quarantine`.
 `pair_request` -> helper shows 6-digit code (TTL <=120 s, brute-force-resistant lockout) -> app
 sends `pair_confirm { code }` -> helper replies `pair_ok { token }`. The lockout is actor-level
 (`totalFailures` + exponential `lockedUntil`); spamming from a new connection cannot reset it; an
-unexpired code is reused rather than rerolled. On every subsequent reconnect the app sends
+unexpired code is reused rather than rerolled. While a code is shown the helper pushes `pair_pending`
+(remaining time only, never the code) so the phone shows a matching countdown; on TTL expiry the
+helper auto-mints a new code and pushes a fresh `pair_pending`, rotating the code without user action. On every subsequent reconnect the app sends
 `auth { token }` -> `auth_ok` before any command. No `command.execute`, `apps.list`, or
 `apps.icon` is processed before `auth_ok` (`AuthGate` on the Swift side, `authPhase === 'paired'`
 gate in `connection.slice.ts` on the mobile side). Token stored in `expo-secure-store`

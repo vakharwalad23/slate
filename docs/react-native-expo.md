@@ -12,9 +12,11 @@ shape changes.
 - **react-native-mmkv** for persistence (AsyncStorage fallback); auth token in **expo-secure-store**.
 - **expo-image**, **@shopify/flash-list** v2 for media/lists. **expo-splash-screen** for the
   branded splash. App icon: deck-grid (indigo) adaptive foreground/monochrome via `expo-image`.
-- WebSocket: React Native built-in (no library). Discovery: manual host:port first, then mDNS.
-  After repeated reconnect misses, `lib/discovery/rediscovery.ts` browses by stored `helperName`
-  and follows the helper to a new IP (network-change auto re-sync).
+- WebSocket: React Native built-in (no library). Discovery: manual host:port first; auto-discovery
+  runs an mDNS browse plus a `/24` subnet WS-handshake scan (`lib/discovery/`), since
+  react-native-zeroconf is unavailable on the New Arch Android build. After repeated reconnect
+  misses, `lib/discovery/rediscovery.ts` browses by stored `helperName` and follows the helper to a
+  new IP (network-change auto re-sync).
 
 Requires an Expo **dev build** (`expo prebuild`) - Expo Go cannot load the native modules.
 
@@ -31,7 +33,8 @@ src/
     index.ts           re-exports
   lib/
     ws/                WebSocket transport (singleton client + reconnect)
-    discovery/         rediscovery.ts - Bonjour browse fallback after repeated reconnect misses
+    discovery/         subnet-scan (/24 WS probe) + zeroconf (mDNS); rediscovery.ts follows
+                       the helper to a new IP after repeated reconnect misses
     utils/             pure helpers
   schemas/             Zod schemas (runtime validation at boundaries)
   types/               TS-only types not exported from @slate/protocol

@@ -39,3 +39,12 @@ export const persistStorage = createJSONStorage(() => backend(stateMmkv));
 
 // Separate namespace so clearing the icon cache never touches persisted prefs/decks.
 export const iconStore = iconMmkv;
+
+// Sync single-key prefs (e.g. theme mode); no-ops under the AsyncStorage fallback (rare),
+// which only costs the toggle its persistence, not correctness.
+export function getPref(key: string): string | null {
+  return stateMmkv?.getString(key) ?? null;
+}
+export function setPref(key: string, value: string): void {
+  stateMmkv?.set(key, value);
+}

@@ -10,20 +10,25 @@ pure data-flow/state-diagram doc - say so and this is repurposed.)
 app                         helper
  |  browse _slate._tcp  -->  (advertises via dns-sd)
  |  <-- service (host, port)
+ |  subnet /24 WS-handshake scan in parallel (reliable path when mDNS is unavailable)
  |  (or user enters host:port manually - always available)
  |  open ws://host:port  -->
  |  hello                -->
  |  <-- hello_ack { capabilities, paired }
 ```
 
-Android emulators don't forward multicast -> discovery is tested on a physical device; manual
-entry is the guaranteed fallback. iOS needs the local-network permission + `NSBonjourServices`.
+Android emulators don't forward multicast and react-native-zeroconf is unavailable on the New Arch
+Android build, so `subnet-scan.ts` (probe every host on the phone's /24 with the WS hello handshake)
+is the primary auto-discovery there; manual entry is the guaranteed fallback. iOS needs the
+local-network permission + `NSBonjourServices`.
 
 ## Pairing
 
 ```
 app                         helper
  |  pair_request         -->  shows 6-digit code (TTL <=120s, rate-limited)
+ |  <-- pair_pending { expiresInMs }   (time left only; phone shows a matching countdown)
+ |       ...on TTL expiry the helper auto-mints a new code + pushes pair_pending again
  |  pair_confirm { code }-->
  |  <-- pair_ok { token }     (token stored in expo-secure-store)
 ```

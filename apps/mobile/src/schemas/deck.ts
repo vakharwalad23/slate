@@ -4,6 +4,8 @@ import { z } from 'zod';
 export const IconRefSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('appIcon'), bundleId: z.string() }),
   z.object({ kind: z.literal('emoji'), value: z.string() }),
+  // 'symbol' is a MaterialCommunityIcons glyph; 'glyph' is the lettermark text fallback.
+  z.object({ kind: z.literal('symbol'), name: z.string() }),
   z.object({ kind: z.literal('glyph'), name: z.string() }),
 ]);
 

@@ -20,8 +20,7 @@ from the Mac. Local-network only, with secure pairing.
 ```
 
 The app never calls OS logic directly - it builds a semantic `Command` and hands it to a
-transport. This keeps the backend pluggable (a zero-install SSH backend can be added later
-behind the same interface, with no app rewrite).
+transport, so the backend stays pluggable behind a single interface.
 
 ## Features
 

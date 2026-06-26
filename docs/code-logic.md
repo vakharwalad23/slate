@@ -19,7 +19,7 @@ literals without a cast.
 
 `Transport` interface with a `WebSocketTransport` implementation. The app builds a semantic
 `Command` and hands it to the transport; it never calls OS-specific logic directly. This keeps the
-backend pluggable (a future `SshTransport` implements the same interface). The socket is a
+backend pluggable behind a single interface. The socket is a
 module-level singleton: a monotonic `generation` counter plus a `desired` flag invalidate stale
 callbacks so rapid connect/disconnect can never leave two live sockets or duplicate timers, and the
 four handlers are detached before `close()` because RN fires `onclose` asynchronously. A JSON-level

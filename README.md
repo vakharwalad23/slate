@@ -1,12 +1,56 @@
+<div align="center">
+
+<img src="apps/mobile/assets/icon.png" width="120" alt="slate" />
+
 # slate
 
-Turn your phone into a programmable Stream Deck for your Mac, over your local network.
+**A programmable Stream Deck for your Mac, driven from your phone. Local network only - nothing leaves your Wi-Fi.**
 
-slate is a React Native / Expo app that drives a Mac through a small native macOS menu-bar
-helper. The phone shows a grid of buttons; tapping one sends a semantic command over a
-WebSocket + JSON connection on your LAN, and the helper runs it on the Mac (launch an app,
-focus an app, run a Shortcut, run AppleScript). Buttons show real macOS app icons pulled live
-from the Mac. Local-network only, with secure pairing.
+[![macOS](https://img.shields.io/badge/macOS-14%2B-000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![app: iOS | Android](https://img.shields.io/badge/app-iOS%20%7C%20Android-1b1f24?logo=expo&logoColor=white)](#requirements)
+[![React Native](https://img.shields.io/badge/React%20Native-Expo%20SDK%2056-149ECA?logo=react&logoColor=white)](https://expo.dev)
+[![Swift](https://img.shields.io/badge/helper-Swift%206.2-F05138?logo=swift&logoColor=white)](https://www.swift.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/vakharwalad23/slate?logo=github)](https://github.com/vakharwalad23/slate/stargazers)
+
+</div>
+
+---
+
+slate turns your phone into a programmable Stream Deck for a Mac. The phone shows a grid of
+buttons; tapping one sends a command over a WebSocket on your LAN, and a small native macOS
+menu-bar helper runs it on the Mac - launch an app, focus an app, run a macOS Shortcut, run
+AppleScript. Buttons render the real macOS app icons, pulled live from the Mac. Local-network only,
+with secure pairing.
+
+Built with React Native / Expo (one app for iOS and Android) and a native Swift menu-bar helper.
+
+## Why slate?
+
+Most phone-as-deck apps route through a vendor cloud, lock you to one mobile platform, or show
+generic icons. slate is local-network only - no account, no relay, nothing leaves your Wi-Fi - runs
+on both iOS and Android from one codebase, and renders the real macOS app icons pulled live from
+your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at any time.
+
+## Features
+
+- **Real macOS app icons, live.** Buttons show each Mac app's actual Finder icon, pulled live from
+  the Mac and cached on the phone - not generic glyphs.
+- **Local network only, no cloud.** Everything runs over your LAN via WebSocket. No account, no
+  relay, nothing leaves your Wi-Fi.
+- **Secure pairing.** A 6-digit code shown on the Mac plus a per-device token; rate-limited with
+  lockout, and every device is revocable from the helper menu.
+- **iOS and Android.** One app, both platforms.
+- **Portrait and a landscape dock mode.** Stand the phone sideways and it becomes a control surface
+  with a side rail.
+- **Light and dark theme.** Follow-system or manual.
+- **Flexible buttons.** Launch an app, focus a running app, run a macOS Shortcut, or run AppleScript.
+  Three icon sources per button: the Mac app icon, an emoji, or a built-in glyph.
+- **Auto-discovery and resilience.** Bonjour / mDNS plus a subnet scan find the Mac automatically
+  (manual host:port always available); auto-reconnect with backoff, and it follows the Mac to a new
+  IP after a network change.
+- **A real menu-bar helper.** Server status, pairing code, paired-device list with revoke, a logs
+  panel, a configurable port, and launch-at-login.
 
 ## How it works
 
@@ -19,26 +63,8 @@ from the Mac. Local-network only, with secure pairing.
 +---------------------+                          +-------------------------+
 ```
 
-The app never calls OS logic directly - it builds a semantic `Command` and hands it to a
-transport, so the backend stays pluggable behind a single interface.
-
-## Features
-
-- Stream-Deck-style grid of rounded icon tiles; tap to run, long-press to edit.
-- Real macOS app icons, pulled live from the Mac and cached on the phone.
-- Light / dark theme (follow-system or manual), and a landscape "dock" mode with a side rail
-  so you can stand the phone sideways as a control surface.
-- Three icon sources per button: the Mac app icon, an emoji, or a built-in glyph.
-- Actions: launch app, activate (focus) a running app, run a macOS Shortcut, run AppleScript
-  (`run_shell` exists but is intentionally disabled in v1).
-- Secure pairing: a 6-digit code shown on the Mac plus a per-device token; rate-limited with
-  lockout; devices are revocable from the helper menu.
-- Discovery: Bonjour / mDNS plus a `/24` subnet scan, with manual host:port as a guaranteed
-  fallback; follows the Mac to a new IP after a network change.
-- Resilience: auto-reconnect with backoff, JSON heartbeat, and a clear connection status pill;
-  commands while offline are surfaced, never silently dropped.
-- Menu-bar helper: server status, pairing code, paired-device list with revoke, a logs panel,
-  a configurable port, and launch-at-login.
+The app never calls OS logic directly - it builds a semantic `Command` and hands it to a transport,
+so the backend stays pluggable behind a single interface.
 
 ## Project layout
 
@@ -55,8 +81,8 @@ A pnpm monorepo.
 ## Requirements
 
 - Node `>=22` (see `.node-version`) and pnpm `10.x`.
-- macOS 14+ with Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build the
-  Swift helper.
+- macOS 14+ with Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) to build the Swift
+  helper.
 - For the phone app, an Expo dev build (Expo Go cannot load slate - it uses native modules):
   - iOS: Xcode + the iOS Simulator.
   - Android: Android Studio / a device, plus either EAS (cloud build) or a local native build.
@@ -85,9 +111,9 @@ open SlateHelper.xcodeproj
 ```
 
 In Xcode, set Signing to your own team, then Build and Run (Cmd-R). The app has no Dock icon -
-look for the menu-bar item. Allow the Local Network prompt on first connect. To use
-`activate_app`, enable SlateHelper under System Settings -> Privacy and Security ->
-Accessibility (the other actions do not need it).
+look for the menu-bar item. Allow the Local Network prompt on first connect. To use `activate_app`,
+enable SlateHelper under System Settings -> Privacy and Security -> Accessibility (the other actions
+do not need it).
 
 Option B - the Node MVP helper (quick, `launch_app` only):
 
@@ -110,17 +136,17 @@ pnpm -F @slate/mobile android
 
 ### 4. Pair and use
 
-Open the app. It auto-discovers the helper (or enter host:port manually), then tap Pair and
-type the 6-digit code shown in the Mac menu. Add buttons, pick an action and icon, and tap to
-run them on the Mac.
+Open the app. It auto-discovers the helper (or enter host:port manually), then tap Pair and type the
+6-digit code shown in the Mac menu. Add buttons, pick an action and icon, and tap to run them on the
+Mac.
 
 ## Security
 
-slate is local-network only. v1 uses `ws://` plus a per-device token on a trusted network:
-tokens are not encrypted in transit, so there is no protection against MITM or replay on an
-untrusted LAN. Pairing is rate-limited with lockout, and devices are revocable from the
-helper. WSS with a self-signed certificate pinned at pairing time is planned for v2. Do not
-expose the helper's port to untrusted networks.
+slate is local-network only. v1 uses `ws://` plus a per-device token on a trusted network: tokens
+are not encrypted in transit, so there is no protection against MITM or replay on an untrusted LAN.
+Pairing is rate-limited with lockout, and devices are revocable from the helper. WSS with a
+self-signed certificate pinned at pairing time is planned for v2. Do not expose the helper's port to
+untrusted networks.
 
 ## Development
 
@@ -140,8 +166,8 @@ comments, and docs are ASCII-only.
 
 Shipping after the public release:
 
-- More actions: keystrokes, switch Spaces, app switching, media keys, multi-step macros,
-  quit app, guarded shell commands, and Shortcut input piping.
+- More actions: keystrokes, switch Spaces, app switching, media keys, multi-step macros, quit app,
+  guarded shell commands, and Shortcut input piping.
 - Per-button gestures (swipe and long-press mapped to commands).
 - Multiple pages / folders, a deck switcher, and drag-to-reorder.
 - Auto profile switching - the deck follows the Mac's foreground app (live state).
@@ -151,20 +177,20 @@ Shipping after the public release:
 
 ## Releases and downloads
 
-Prebuilt binaries (an Android APK and a macOS DMG) will be published with the v2 release. For
-now, build from source using the steps above.
+Prebuilt binaries (an Android APK and a macOS DMG) will be published with the v2 release. For now,
+build from source using the steps above.
+
+## Contributing
+
+Contributions are very much welcome - open an issue or a pull request. Please follow Conventional
+Commits and the ASCII-only rule (see Development above), and make sure `pnpm check` and the
+type-check pass. `main` is protected: changes land via pull request, not direct pushes.
 
 ## Docs
 
 See [`docs/`](./docs): [React Native / Expo](./docs/react-native-expo.md) |
 [code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) |
 [SwiftUI helper](./docs/swiftui.md).
-
-## Contributing
-
-Contributions are very much welcome - open an issue or a pull request. Please follow
-Conventional Commits and the ASCII-only rule (see Development above), and make sure `pnpm check`
-and the type-check pass.
 
 ## License
 

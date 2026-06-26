@@ -160,6 +160,12 @@ See [`docs/`](./docs): [React Native / Expo](./docs/react-native-expo.md) |
 [code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) |
 [SwiftUI helper](./docs/swiftui.md).
 
+## Contributing
+
+Contributions are very much welcome - open an issue or a pull request. Please follow
+Conventional Commits and the ASCII-only rule (see Development above), and make sure `pnpm check`
+and the type-check pass.
+
 ## License
 
-Not yet licensed (all rights reserved for now). A license will be added soon.
+Released under the [MIT License](./LICENSE). Copyright (c) 2026 Dhruv Vakharwala.

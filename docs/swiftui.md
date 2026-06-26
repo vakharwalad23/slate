@@ -12,6 +12,8 @@ SlateHelper/
   MenuContent.swift         menu UI (.window style): status, host:port, pairing code,
                             paired devices + revoke, Accessibility state, log viewer
   App/
+    HelperConfig.swift      static identity: name = the Mac's computer name
+                            (Host.current().localizedName), version, default port, capabilities
     LoginItem.swift         SMAppService open-at-login toggle (menu item)
     Settings.swift          listen port persisted in UserDefaults; menu-editable;
                             changing restarts listener and re-advertises Bonjour
@@ -38,7 +40,8 @@ SlateHelper/
   Auth/
     PairingService.swift    actor; 6-digit code, TTL <=120s; actor-level totalFailures +
                             exponential lockedUntil (brute-force-resistant); unexpired code
-                            reused on repeat pair_request rather than rerolled
+                            reused on repeat pair_request; auto-regenerated on expiry (pushes
+                            pair_pending so the phone countdown stays in sync)
     TokenStore.swift        actor; 32-byte token; 0600 JSON in Application Support; revoke
                             calls ConnectionRegistry.closeIfDevice to drop the live socket
   Apps/
@@ -51,7 +54,10 @@ SlateHelper/
     NetworkMonitor.swift    NWPathMonitor (debounced) re-advertises Bonjour when the Mac's
                             LAN IP changes so a phone on a new network can rediscover
   Permissions/
-    PermissionProbe.swift   AXIsProcessTrustedWithOptions; result shown in menu
+    PermissionProbe.swift   Accessibility only: AXIsProcessTrusted (silent read) +
+                            AXIsProcessTrustedWithOptions (prompt); never probes Input Monitoring
+    AccessibilityMonitor.swift  reacts to grant/revoke live via the com.apple.accessibility.api
+                            distributed notification (30s poll is a backstop); drives the grant row
 ```
 
 Assets: `Assets.xcassets` includes a macOS `AppIcon.appiconset` (deck-grid, indigo) matching the
@@ -73,6 +79,15 @@ the kicked device's socket is dropped immediately.
 `lockedUntil` at actor level. The lockout is exponential and cannot be reset by spamming
 `pair_request` from a new connection. An unexpired code is reused rather than rerolled.
 `scripts/brute-force-pairing.test.mjs` validates the behaviour.
+
+**Helper-authoritative pairing countdown** - while a code shows, the helper pushes `pair_pending`
+(remaining time only, never the code) so the phone's countdown matches; on TTL expiry it auto-mints
+a new code and pushes a fresh `pair_pending`, rotating the displayed code without user action.
+
+**Reactive Accessibility state** - `AccessibilityMonitor` reads `AXIsProcessTrusted` (no prompt) and
+listens for the `com.apple.accessibility.api` distributed notification, so the menu's grant row
+appears/disappears the instant the grant changes; the 30s poll is only a backstop. An earlier version
+mistakenly probed Input Monitoring (a listen-only `CGEvent` tap) - fixed to Accessibility-only.
 
 **Launch at login** - `LoginItem.swift` uses `SMAppService.mainApp` to register/unregister the
 open-at-login item; toggled from the menu.

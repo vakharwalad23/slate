@@ -9,51 +9,80 @@ const PROBE_TIMEOUT_MS = 800;
 const SUBNET_RETRIES = 8;
 const SUBNET_RETRY_MS = 400;
 
+type ProbeOutcome = 'helloAck' | 'openTimeout' | 'timeout' | 'error';
+
+// Temporary diagnostic surface for the first-scan-misses bug: aggregated per pass so the in-app log
+// gets one line, not 254. Plumbed via a callback to keep this module store-free.
+export type ScanDiag = {
+  prefix: string | null;
+  subnetAttempts: number;
+  hostsProbed: number;
+  outcomes: Record<ProbeOutcome, number>;
+  found: number;
+};
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The phone's own Wi-Fi /24 prefix (e.g. "192.168.31."), or null if not on Wi-Fi after retrying.
-async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> {
+// The phone's own Wi-Fi /24 prefix (e.g. "192.168.31."), or null if not on Wi-Fi after retrying;
+// attempts reports how many NetInfo fetches it took (1 == resolved on the first try).
+async function subnetPrefix(
+  isCancelled: () => boolean,
+): Promise<{ prefix: string | null; attempts: number }> {
   for (let attempt = 0; attempt < SUBNET_RETRIES; attempt += 1) {
-    if (isCancelled()) return null;
+    if (isCancelled()) return { prefix: null, attempts: attempt };
     const state = await NetInfo.fetch();
     const ip = state.type === 'wifi' ? state.details.ipAddress : null;
     if (ip !== null && ip !== undefined) {
       const parts = ip.split('.');
-      if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.`;
+      if (parts.length === 4) {
+        return { prefix: `${parts[0]}.${parts[1]}.${parts[2]}.`, attempts: attempt + 1 };
+      }
     }
     await delay(SUBNET_RETRY_MS);
   }
-  return null;
+  return { prefix: null, attempts: SUBNET_RETRIES };
 }
 
-// Resolves the helper name if host:port answers the slate handshake, else null.
-function probe(host: string, port: number): Promise<string | null> {
+// Resolves the helper name if host:port answers the slate handshake, plus the terminal outcome:
+// openTimeout (socket opened but no hello_ack in time) vs timeout (never opened) separates a slow
+// handshake from an unreachable host.
+function probe(
+  host: string,
+  port: number,
+): Promise<{ name: string | null; outcome: ProbeOutcome }> {
   return new Promise((resolve) => {
     let settled = false;
+    let opened = false;
     const ws = new WebSocket(`ws://${host}:${port}`);
-    const finish = (name: string | null) => {
+    const finish = (name: string | null, outcome: ProbeOutcome) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       ws.close();
-      resolve(name);
+      resolve({ name, outcome });
     };
-    const timer = setTimeout(() => finish(null), PROBE_TIMEOUT_MS);
-    ws.onopen = () => ws.send(JSON.stringify(helloMessage()));
+    const timer = setTimeout(
+      () => finish(null, opened ? 'openTimeout' : 'timeout'),
+      PROBE_TIMEOUT_MS,
+    );
+    ws.onopen = () => {
+      opened = true;
+      ws.send(JSON.stringify(helloMessage()));
+    };
     ws.onmessage = (event) => {
       if (typeof event.data !== 'string') return;
       try {
         const parsed = MessageSchema.safeParse(JSON.parse(event.data));
         if (parsed.success && parsed.data.type === 'hello_ack') {
-          finish(parsed.data.payload.helperName);
+          finish(parsed.data.payload.helperName, 'helloAck');
         }
       } catch {
-        finish(null);
+        finish(null, 'error');
       }
     };
-    ws.onerror = () => finish(null);
+    ws.onerror = () => finish(null, 'error');
   });
 }
 
@@ -63,20 +92,36 @@ export async function scanForHelpers(
   port: number,
   onFound: (host: string, name: string) => void,
   isCancelled: () => boolean,
+  onDiag?: (diag: ScanDiag) => void,
 ): Promise<boolean> {
-  const prefix = await subnetPrefix(isCancelled);
-  if (prefix === null) return false;
+  const outcomes: Record<ProbeOutcome, number> = {
+    helloAck: 0,
+    openTimeout: 0,
+    timeout: 0,
+    error: 0,
+  };
+  const { prefix, attempts } = await subnetPrefix(isCancelled);
+  if (prefix === null) {
+    onDiag?.({ prefix: null, subnetAttempts: attempts, hostsProbed: 0, outcomes, found: 0 });
+    return false;
+  }
   const hosts = Array.from({ length: 254 }, (_, i) => `${prefix}${i + 1}`);
+  let found = 0;
   let next = 0;
   const worker = async () => {
     while (next < hosts.length && !isCancelled()) {
       const host = hosts[next];
       next += 1;
       if (host === undefined) break;
-      const name = await probe(host, port);
-      if (name !== null && !isCancelled()) onFound(host, name);
+      const { name, outcome } = await probe(host, port);
+      outcomes[outcome] += 1;
+      if (name !== null && !isCancelled()) {
+        found += 1;
+        onFound(host, name);
+      }
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  onDiag?.({ prefix, subnetAttempts: attempts, hostsProbed: hosts.length, outcomes, found });
   return true;
 }

@@ -2,16 +2,16 @@ import XCTest
 @testable import SlateHelper
 
 private actor CallRecorder {
-    private(set) var calls: [(path: String, args: [String])] = []
-    func record(_ path: String, _ args: [String]) { calls.append((path, args)) }
+    private(set) var calls: [(path: String, args: [String], stdin: String?)] = []
+    func record(_ path: String, _ args: [String], _ stdin: String?) { calls.append((path, args, stdin)) }
 }
 
 private struct FakeRunner: ProcessRunning {
     let recorder: CallRecorder
     let failure: ProcessRunError?
 
-    func run(_ launchPath: String, _ args: [String]) async throws -> String {
-        await recorder.record(launchPath, args)
+    func run(_ launchPath: String, _ args: [String], stdin: String?) async throws -> String {
+        await recorder.record(launchPath, args, stdin)
         if let failure { throw failure }
         return ""
     }
@@ -34,6 +34,17 @@ final class CommandExecutorTests: XCTestCase {
             .execute(.launchApp(app: "Safari"))
         XCTAssertFalse(outcome.ok)
         XCTAssertEqual(outcome.error, "no such app")
+    }
+
+    func testRunShortcutPipesInputToStdin() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.runShortcut(name: "My Shortcut", input: "hello"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/usr/bin/shortcuts")
+        XCTAssertEqual(calls.first?.args, ["run", "My Shortcut"])
+        XCTAssertEqual(calls.first?.stdin, "hello")
     }
 
     func testRunShellNotImplemented() async {

@@ -69,6 +69,9 @@ export default function ButtonEditor() {
   const [shortcutName, setShortcutName] = useState(
     initialAction?.kind === 'run_shortcut' ? initialAction.name : '',
   );
+  const [shortcutInput, setShortcutInput] = useState(
+    initialAction?.kind === 'run_shortcut' ? (initialAction.input ?? '') : '',
+  );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -99,8 +102,13 @@ export default function ButtonEditor() {
         return { kind: 'launch_app', app: appField.trim() };
       case 'activate_app':
         return { kind: 'activate_app', bundleId: appField.trim() };
-      case 'run_shortcut':
-        return { kind: 'run_shortcut', name: shortcutName.trim() };
+      case 'run_shortcut': {
+        const name = shortcutName.trim();
+        const input = shortcutInput.trim();
+        return input !== ''
+          ? { kind: 'run_shortcut', name, input }
+          : { kind: 'run_shortcut', name };
+      }
       case 'run_applescript':
         return { kind: 'run_applescript', script };
       case 'run_shell':
@@ -197,11 +205,18 @@ export default function ButtonEditor() {
         ) : null}
 
         {kind === 'run_shortcut' ? (
-          <TextField
-            value={shortcutName}
-            onChangeText={setShortcutName}
-            placeholder="Shortcut name"
-          />
+          <>
+            <TextField
+              value={shortcutName}
+              onChangeText={setShortcutName}
+              placeholder="Shortcut name"
+            />
+            <TextField
+              value={shortcutInput}
+              onChangeText={setShortcutInput}
+              placeholder="Input (optional, piped to the Shortcut)"
+            />
+          </>
         ) : null}
 
         {kind === 'run_applescript' || kind === 'run_shell' ? (

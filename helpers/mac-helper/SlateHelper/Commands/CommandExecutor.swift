@@ -24,9 +24,9 @@ struct CommandExecutor: CommandExecuting {
             return await launch(app)
         case let .activateApp(bundleId):
             return await activator.activate(bundleId: bundleId)
-        case let .runShortcut(name, _):
-            // input piping is not wired yet; the shortcut runs without stdin.
-            return await runProcess("/usr/bin/shortcuts", ["run", name])
+        case let .runShortcut(name, input):
+            // input is piped to `shortcuts run` stdin; the Shortcut must start with a "Receive input" step.
+            return await runProcess("/usr/bin/shortcuts", ["run", name], stdin: input)
         case let .runApplescript(script):
             return await runProcess("/usr/bin/osascript", ["-e", script])
         case .runShell:
@@ -54,9 +54,9 @@ struct CommandExecutor: CommandExecuting {
         }
     }
 
-    private func runProcess(_ path: String, _ args: [String]) async -> CommandOutcome {
+    private func runProcess(_ path: String, _ args: [String], stdin: String? = nil) async -> CommandOutcome {
         do {
-            try await runner.run(path, args)
+            try await runner.run(path, args, stdin: stdin)
             return CommandOutcome(ok: true, error: nil)
         } catch {
             return CommandOutcome(ok: false, error: describe(error))

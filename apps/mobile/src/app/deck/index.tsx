@@ -1,11 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AddCell, DeckButtonCell } from '@/components/DeckButtonCell';
+import { DeckNavBar } from '@/components/DeckNavBar';
+import { SortableGrid } from '@/components/SortableGrid';
 import { Button, connState, Icon, PressableScale, StatusPill, Text } from '@/components/ui';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
@@ -33,19 +35,29 @@ export default function DeckScreen() {
   const insets = useSafeAreaInsets();
   const landscape = width > height;
 
-  const { decks, currentDeckId, currentPageId, helperName, status, requestApps, sendCommand } =
-    useStore(
-      useShallow((s) => ({
-        decks: s.decks,
-        currentDeckId: s.currentDeckId,
-        currentPageId: s.currentPageId,
-        helperName: s.helper?.name ?? 'helper',
-        status: s.status,
-        requestApps: s.requestApps,
-        sendCommand: s.sendCommand,
-      })),
-    );
+  const {
+    decks,
+    currentDeckId,
+    currentPageId,
+    helperName,
+    status,
+    requestApps,
+    sendCommand,
+    reorderButton,
+  } = useStore(
+    useShallow((s) => ({
+      decks: s.decks,
+      currentDeckId: s.currentDeckId,
+      currentPageId: s.currentPageId,
+      helperName: s.helper?.name ?? 'helper',
+      status: s.status,
+      requestApps: s.requestApps,
+      sendCommand: s.sendCommand,
+      reorderButton: s.reorderButton,
+    })),
+  );
   const disconnect = useStore((s) => s.disconnect);
+  const [editing, setEditing] = useState(false);
 
   // Populate app list (and thus icon versions) once paired so grid icons resolve.
   useEffect(() => {
@@ -55,6 +67,11 @@ export default function DeckScreen() {
   const deck = decks.find((d) => d.id === currentDeckId) ?? decks[0];
   const page = deck?.pages.find((p) => p.id === currentPageId) ?? deck?.pages[0];
   const { state, label } = connState(status);
+
+  const hasButtons = page !== undefined && page.buttons.length > 0;
+  useEffect(() => {
+    if (!hasButtons) setEditing(false);
+  }, [hasButtons]);
 
   const cols = landscape ? 6 : 4;
   const rail = landscape ? 84 : 0;
@@ -66,6 +83,15 @@ export default function DeckScreen() {
 
   const controls = (
     <>
+      {hasButtons ? (
+        <PressableScale onPress={() => setEditing((e) => !e)} haptics={false}>
+          <Icon
+            name={editing ? 'check' : 'pencil'}
+            size={22}
+            color={editing ? colors.accent : colors.textSecondary}
+          />
+        </PressableScale>
+      ) : null}
       <PressableScale onPress={() => router.push('/settings')} haptics={false}>
         <Icon name="cog" size={24} color={colors.textSecondary} />
       </PressableScale>
@@ -110,18 +136,30 @@ export default function DeckScreen() {
 
       <View style={styles.gridArea}>
         <ScrollView contentContainerStyle={styles.gridScroll}>
-          <View style={[styles.grid, { width: gridWidth }]}>
-            {page?.buttons.map((button) => (
-              <DeckButtonCell
-                key={button.id}
-                button={button}
-                size={tile}
-                onPress={() => sendCommand(button.action)}
-                onLongPress={() => router.push(`/deck/button/${button.id}`)}
-              />
-            ))}
-            {page ? <AddCell size={tile} onPress={() => router.push('/deck/button/new')} /> : null}
-          </View>
+          {editing && page !== undefined && page.buttons.length > 0 ? (
+            <SortableGrid
+              buttons={page.buttons}
+              cols={cols}
+              size={tile}
+              gap={spacing.md}
+              onReorder={(from, to) => reorderButton(page.id, from, to)}
+            />
+          ) : (
+            <View style={[styles.grid, { width: gridWidth }]}>
+              {page?.buttons.map((button) => (
+                <DeckButtonCell
+                  key={button.id}
+                  button={button}
+                  size={tile}
+                  onPress={() => sendCommand(button.action)}
+                  onLongPress={() => router.push(`/deck/button/${button.id}`)}
+                />
+              ))}
+              {page ? (
+                <AddCell size={tile} onPress={() => router.push('/deck/button/new')} />
+              ) : null}
+            </View>
+          )}
           {page === undefined ? (
             <Text tone="secondary" style={styles.empty}>
               No page
@@ -129,6 +167,8 @@ export default function DeckScreen() {
           ) : null}
         </ScrollView>
       </View>
+
+      {landscape ? null : <DeckNavBar />}
     </View>
   );
 }

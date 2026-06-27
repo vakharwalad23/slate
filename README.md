@@ -140,6 +140,9 @@ Open the app. It auto-discovers the helper (or enter host:port manually), then t
 6-digit code shown in the Mac menu. Add buttons, pick an action and icon, and tap to run them on the
 Mac.
 
+Auto-discovery usually finds the Mac on its own; if it ever misses, type the IP shown in the Mac
+menu-bar helper into the host box (faster UDP-broadcast discovery is on the way).
+
 ## Security
 
 slate is local-network only. v1 uses `ws://` plus a per-device token on a trusted network: tokens
@@ -173,7 +176,7 @@ Shipping after the public release:
 - Auto profile switching - the deck follows the Mac's foreground app (live state).
 - WSS with certificate pinning at pairing.
 - A notarized DMG and prebuilt downloads (see below).
-- Discovery reliability improvements.
+- Faster, more reliable discovery via UDP broadcast.
 
 ## Releases and downloads
 

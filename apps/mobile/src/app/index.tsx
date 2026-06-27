@@ -1,5 +1,5 @@
 import { router, usePathname } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
@@ -33,15 +33,28 @@ export default function HomeScreen() {
   const [helperName, setHelperName] = useState<string | null>(null);
 
   const socketUp = status === 'connected';
+  // Auto-connect fires at most once per mount, so an explicit Disconnect is not immediately undone.
+  const autoConnected = useRef(false);
 
-  // Browse for helpers while idle on this screen; stop once connected or away.
+  // Browse for helpers while idle on this screen; stop once connected or away. For a returning user a
+  // last-known host is persisted, so reconnect straight to it (the sweep stays as the moved-IP fallback).
   useEffect(() => {
     if (bootstrapped && !socketUp && pathname === '/') {
+      if (!autoConnected.current) {
+        autoConnected.current = true;
+        const { host: knownHost, port: knownPort } = useStore.getState();
+        if (knownHost.length > 0) {
+          void ensureLocalNetworkPermission().then((granted) => {
+            if (granted && useStore.getState().status !== 'connected')
+              connect(knownHost, knownPort);
+          });
+        }
+      }
       startScan();
       return () => stopScan();
     }
     return undefined;
-  }, [bootstrapped, socketUp, pathname, startScan, stopScan]);
+  }, [bootstrapped, socketUp, pathname, startScan, stopScan, connect]);
 
   // Single nav driver (this root screen stays mounted): pairing -> deck on the phase edges.
   useEffect(() => {

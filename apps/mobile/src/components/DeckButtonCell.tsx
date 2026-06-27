@@ -1,25 +1,14 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { IconView } from '@/components/IconView';
 import { PressableScale, Text } from '@/components/ui';
 import type { DeckButton } from '@/schemas';
 import { radii, spacing, useTheme } from '@/theme';
 
-export function DeckButtonCell({
-  button,
-  size,
-  onPress,
-  onLongPress,
-}: {
-  button: DeckButton;
-  size: number;
-  onPress: () => void;
-  onLongPress: () => void;
-}) {
+// The visual only, no press handling - reused by the static grid and the drag-reorder grid.
+export function DeckButtonFace({ button, size }: { button: DeckButton; size: number }) {
   const { colors } = useTheme();
   return (
-    <PressableScale
-      onPress={onPress}
-      onLongPress={onLongPress}
+    <View
       style={[
         styles.cell,
         {
@@ -37,6 +26,24 @@ export function DeckButtonCell({
           {button.label}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+export function DeckButtonCell({
+  button,
+  size,
+  onPress,
+  onLongPress,
+}: {
+  button: DeckButton;
+  size: number;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  return (
+    <PressableScale onPress={onPress} onLongPress={onLongPress}>
+      <DeckButtonFace button={button} size={size} />
     </PressableScale>
   );
 }

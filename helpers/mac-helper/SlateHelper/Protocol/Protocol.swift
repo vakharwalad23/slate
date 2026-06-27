@@ -34,11 +34,14 @@ enum Command: Equatable, Sendable {
     case runApplescript(script: String)
     case runShell(script: String)
     case media(action: String)
+    case keystroke(key: String, modifiers: [String])
     case unknown(kind: String)
 }
 
 extension Command: Codable {
-    private enum CodingKeys: String, CodingKey { case kind, app, bundleId, name, input, script, action }
+    private enum CodingKeys: String, CodingKey {
+        case kind, app, bundleId, name, input, script, action, key, modifiers
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -61,6 +64,11 @@ extension Command: Codable {
             self = .runShell(script: try c.decode(String.self, forKey: .script))
         case "media":
             self = .media(action: try c.decode(String.self, forKey: .action))
+        case "keystroke":
+            self = .keystroke(
+                key: try c.decode(String.self, forKey: .key),
+                modifiers: try c.decode([String].self, forKey: .modifiers)
+            )
         default:
             self = .unknown(kind: kind)
         }
@@ -91,6 +99,10 @@ extension Command: Codable {
         case let .media(action):
             try c.encode("media", forKey: .kind)
             try c.encode(action, forKey: .action)
+        case let .keystroke(key, modifiers):
+            try c.encode("keystroke", forKey: .kind)
+            try c.encode(key, forKey: .key)
+            try c.encode(modifiers, forKey: .modifiers)
         case let .unknown(kind):
             try c.encode(kind, forKey: .kind)
         }

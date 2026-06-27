@@ -361,6 +361,36 @@
                 "action"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "keystroke"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "modifiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "cmd",
+                      "shift",
+                      "option",
+                      "control"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "key",
+                "modifiers"
+              ],
+              "additionalProperties": false
             }
           ]
         }

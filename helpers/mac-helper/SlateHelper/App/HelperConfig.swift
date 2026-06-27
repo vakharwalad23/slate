@@ -15,7 +15,7 @@ enum HelperConfig {
             launchApps: true,
             runShortcuts: true,
             runShell: Settings.allowShell,
-            keystrokes: false,
+            keystrokes: PermissionProbe.accessibilityGranted(),
             appList: true,
             appIcons: true,
             liveState: false

@@ -14,7 +14,10 @@ import { radii, spacing, useTheme } from '@/theme';
 
 type Kind = Command['kind'];
 type MediaAction = Extract<Command, { kind: 'media' }>['action'];
+type KeyModifier = Extract<Command, { kind: 'keystroke' }>['modifiers'][number];
 type IconSource = 'app' | 'emoji' | 'symbol';
+
+const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
 
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
@@ -24,6 +27,7 @@ const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] =
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
   { kind: 'media', label: 'Media', needs: null },
+  { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
 ];
 
 const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
@@ -87,6 +91,14 @@ export default function ButtonEditor() {
   const [mediaAction, setMediaAction] = useState<MediaAction>(
     initialAction?.kind === 'media' ? initialAction.action : 'playpause',
   );
+  const [keyToken, setKeyToken] = useState(
+    initialAction?.kind === 'keystroke' ? initialAction.key : '',
+  );
+  const [modifiers, setModifiers] = useState<KeyModifier[]>(
+    initialAction?.kind === 'keystroke' ? initialAction.modifiers : [],
+  );
+  const toggleModifier = (m: KeyModifier) =>
+    setModifiers((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -132,6 +144,8 @@ export default function ButtonEditor() {
         return { kind: 'run_shell', script };
       case 'media':
         return { kind: 'media', action: mediaAction };
+      case 'keystroke':
+        return { kind: 'keystroke', key: keyToken.trim(), modifiers };
     }
   }
 
@@ -258,6 +272,28 @@ export default function ButtonEditor() {
                 onPress={() => setMediaAction(m.value)}
               />
             ))}
+          </View>
+        ) : null}
+
+        {kind === 'keystroke' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              {MODIFIERS.map((m) => (
+                <Chip
+                  key={m}
+                  label={m}
+                  selected={modifiers.includes(m)}
+                  onPress={() => toggleModifier(m)}
+                />
+              ))}
+            </View>
+            <TextField
+              value={keyToken}
+              onChangeText={setKeyToken}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="key e.g. c, left, f5, space"
+            />
           </View>
         ) : null}
 

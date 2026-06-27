@@ -156,6 +156,20 @@
       }
     },
     {
+      "name": "command.execute keystroke",
+      "frame": {
+        "v": 1,
+        "id": "acacacac-acac-4cac-8cac-acacacacacac",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "keystroke",
+          "key": "c",
+          "modifiers": ["cmd"]
+        }
+      }
+    },
+    {
       "name": "apps.list",
       "frame": {
         "v": 1,

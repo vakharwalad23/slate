@@ -46,6 +46,8 @@ struct CommandExecutor: CommandExecuting {
             return await runProcess("/bin/sh", ["-c", script])
         case let .media(action):
             return await media(action)
+        case let .keystroke(key, modifiers):
+            return await keystroke(key: key, modifiers: modifiers)
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }
@@ -74,6 +76,41 @@ struct CommandExecutor: CommandExecuting {
     // `set volume output volume` clamps to 0-100, so an over/underflow needs no explicit bounds here.
     private func volumeScript(by delta: Int) -> String {
         "set volume output volume ((output volume of (get volume settings)) + \(delta))"
+    }
+
+    @MainActor
+    private func keystroke(key: String, modifiers: [String]) -> CommandOutcome {
+        guard PermissionProbe.accessibilityGranted() else {
+            return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
+        }
+        guard let code = KeyTokens.code(for: key) else {
+            return CommandOutcome(ok: false, error: "unknown key: \(key)")
+        }
+        let source = CGEventSource(stateID: .hidSystemState)
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: false) else {
+            return CommandOutcome(ok: false, error: "failed to synthesize keystroke")
+        }
+        let flags = cgFlags(modifiers)
+        down.flags = flags
+        up.flags = flags
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        return CommandOutcome(ok: true, error: nil)
+    }
+
+    private func cgFlags(_ modifiers: [String]) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        for modifier in modifiers {
+            switch modifier {
+            case "cmd": flags.insert(.maskCommand)
+            case "shift": flags.insert(.maskShift)
+            case "option": flags.insert(.maskAlternate)
+            case "control": flags.insert(.maskControl)
+            default: break
+            }
+        }
+        return flags
     }
 
     // NX_KEYTYPE_* media keys are NSSystemDefined events with subtype 8; data1 packs keycode + up/down.

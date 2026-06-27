@@ -12,6 +12,11 @@ export const CommandSchema = z.discriminatedUnion('kind', [
     kind: z.literal('media'),
     action: z.enum(['playpause', 'next', 'prev', 'volume_up', 'volume_down', 'mute']),
   }),
+  z.object({
+    kind: z.literal('keystroke'),
+    key: z.string(),
+    modifiers: z.array(z.enum(['cmd', 'shift', 'option', 'control'])),
+  }),
 ]);
 
 export type Command = z.infer<typeof CommandSchema>;

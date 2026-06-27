@@ -2,7 +2,11 @@ import NetInfo from '@react-native-community/netinfo';
 import { MessageSchema } from '@slate/protocol';
 import { helloMessage } from '@/lib/ws';
 
-const CONCURRENCY = 24;
+// 24 saturated the Wi-Fi radio: ~250 dead hosts each holding a slot for the full timeout starved the
+// real helper's handshake, so it was missed most passes (diagnostics showed openTO=0 + intermittent
+// ack). 10 trims the air congestion; the sweep is slower but reliable, and the last-known-host fast
+// path makes the common case instant regardless.
+const CONCURRENCY = 10;
 const PROBE_TIMEOUT_MS = 800;
 // NetInfo often has not resolved the Wi-Fi IP yet right after launch, so retry before giving up
 // (a single fetch was the cause of the first-scan-finds-nothing bug).
@@ -84,6 +88,12 @@ function probe(
     };
     ws.onerror = () => finish(null, 'error');
   });
+}
+
+// A single clean handshake to a known host, probed before the wide sweep starts so it answers
+// without the radio congestion that starves it mid-sweep.
+export async function probeHelper(host: string, port: number): Promise<string | null> {
+  return (await probe(host, port)).name;
 }
 
 // Probe every host on the phone's subnet; report each slate helper as it answers. Returns false if no

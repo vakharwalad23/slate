@@ -39,21 +39,30 @@ xcodebuild -project SlateHelper.xcodeproj -scheme SlateHelper -destination 'plat
 xcodebuild -project SlateHelper.xcodeproj -scheme SlateHelper -destination 'platform=macOS' test
 ```
 
-## Protocol parity checklist
+## Protocol parity (enforced by tests)
 
-`SlateHelper/Protocol/Protocol.swift` hand-mirrors `packages/protocol`. When the protocol version
-bumps, diff it against the generated schema (`pnpm -F @slate/protocol gen:schema`) and update both:
+`SlateHelper/Protocol/{Protocol,MessageCoding}.swift` hand-mirrors `packages/protocol`. The Zod
+schema (`packages/protocol/src`) is the single source of truth; the generated JSON Schema and this
+Swift port are pinned to it by one shared fixture set, `packages/protocol/fixtures/messages.json`,
+so a drift fails a build instead of the wire.
 
-- Envelope keys: `v` (Int, must equal the protocol version), `id` (uuid), `reId` (uuid or null).
-- Message discriminant: `type`. Command discriminant: `kind`.
-- Messages handled or emitted: `hello` -> `hello_ack`, `ping` -> `pong`,
-  `command.execute` -> `command.result`. Other types decode to `unknown` and are dropped.
-- Commands: `launch_app`, `activate_app`, `run_shortcut`, `run_applescript`, `run_shell`.
-- Capabilities flags: `launchApps`, `runShortcuts`, `runShell`, `keystrokes`, `appList`,
-  `appIcons`, `liveState`.
+On any protocol change:
 
-Reply `id`/`reId` are lowercased uuids; a reply whose `id` is not a valid uuid is dropped by the
-phone at its validation boundary.
+1. Edit the Zod schema, then regenerate the JSON Schema: `pnpm -F @slate/protocol gen:schema`.
+2. Add or adjust the matching frame in `fixtures/messages.json` (one valid frame per message type
+   and per command kind, plus the malformed cases).
+3. Update this Swift port to match, then make all of these green:
+   - `pnpm verify` - runs `gen:schema --check` (the committed JSON Schema must equal the Zod
+     output) and the TS conformance test (every fixture parses or rejects as declared).
+   - `xcodebuild -scheme SlateHelper test` - `ProtocolConformanceTests` decodes every inbound
+     fixture, encodes every outbound fixture, and asserts the malformed and unknown-type cases
+     drop as designed.
+4. If the wire format changes incompatibly, bump `PROTOCOL_VERSION` on both sides in lockstep (the
+   `v` field is covered by the fixtures).
+
+Direction matters: Swift decodes inbound (App -> Helper) frames and encodes outbound
+(Helper -> App) frames; an unrecognized `type` decodes to `unknown` and is dropped. Reply
+`id`/`reId` are lowercased uuids; uuid format is validated at the phone boundary, not in Swift.
 
 ## Build a release DMG
 

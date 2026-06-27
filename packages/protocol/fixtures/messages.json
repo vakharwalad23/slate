@@ -170,6 +170,19 @@
       }
     },
     {
+      "name": "command.execute space",
+      "frame": {
+        "v": 1,
+        "id": "adadadad-adad-4dad-8dad-adadadadadad",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "space",
+          "direction": "next"
+        }
+      }
+    },
+    {
       "name": "apps.list",
       "frame": {
         "v": 1,

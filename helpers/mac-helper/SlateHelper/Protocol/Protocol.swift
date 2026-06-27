@@ -35,12 +35,13 @@ enum Command: Equatable, Sendable {
     case runShell(script: String)
     case media(action: String)
     case keystroke(key: String, modifiers: [String])
+    case space(direction: String)
     case unknown(kind: String)
 }
 
 extension Command: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, app, bundleId, name, input, script, action, key, modifiers
+        case kind, app, bundleId, name, input, script, action, key, modifiers, direction
     }
 
     init(from decoder: Decoder) throws {
@@ -69,6 +70,8 @@ extension Command: Codable {
                 key: try c.decode(String.self, forKey: .key),
                 modifiers: try c.decode([String].self, forKey: .modifiers)
             )
+        case "space":
+            self = .space(direction: try c.decode(String.self, forKey: .direction))
         default:
             self = .unknown(kind: kind)
         }
@@ -103,6 +106,9 @@ extension Command: Codable {
             try c.encode("keystroke", forKey: .kind)
             try c.encode(key, forKey: .key)
             try c.encode(modifiers, forKey: .modifiers)
+        case let .space(direction):
+            try c.encode("space", forKey: .kind)
+            try c.encode(direction, forKey: .direction)
         case let .unknown(kind):
             try c.encode(kind, forKey: .kind)
         }

@@ -391,6 +391,27 @@
                 "modifiers"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "space"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "next",
+                    "prev"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "direction"
+              ],
+              "additionalProperties": false
             }
           ]
         }

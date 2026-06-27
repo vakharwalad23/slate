@@ -48,6 +48,9 @@ struct CommandExecutor: CommandExecuting {
             return await media(action)
         case let .keystroke(key, modifiers):
             return await keystroke(key: key, modifiers: modifiers)
+        case let .space(direction):
+            // Mission Control "move left/right a space" - the user must keep those shortcuts enabled.
+            return await keystroke(key: direction == "next" ? "right" : "left", modifiers: ["control"])
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }

@@ -15,6 +15,7 @@ import { radii, spacing, useTheme } from '@/theme';
 type Kind = Command['kind'];
 type MediaAction = Extract<Command, { kind: 'media' }>['action'];
 type KeyModifier = Extract<Command, { kind: 'keystroke' }>['modifiers'][number];
+type SpaceDirection = Extract<Command, { kind: 'space' }>['direction'];
 type IconSource = 'app' | 'emoji' | 'symbol';
 
 const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
@@ -28,6 +29,7 @@ const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] =
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
   { kind: 'media', label: 'Media', needs: null },
   { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
+  { kind: 'space', label: 'Space', needs: 'keystrokes' },
 ];
 
 const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
@@ -99,6 +101,9 @@ export default function ButtonEditor() {
   );
   const toggleModifier = (m: KeyModifier) =>
     setModifiers((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
+  const [spaceDirection, setSpaceDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'space' ? initialAction.direction : 'next',
+  );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -146,6 +151,8 @@ export default function ButtonEditor() {
         return { kind: 'media', action: mediaAction };
       case 'keystroke':
         return { kind: 'keystroke', key: keyToken.trim(), modifiers };
+      case 'space':
+        return { kind: 'space', direction: spaceDirection };
     }
   }
 
@@ -294,6 +301,26 @@ export default function ButtonEditor() {
               autoCorrect={false}
               placeholder="key e.g. c, left, f5, space"
             />
+          </View>
+        ) : null}
+
+        {kind === 'space' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              <Chip
+                label="Next"
+                selected={spaceDirection === 'next'}
+                onPress={() => setSpaceDirection('next')}
+              />
+              <Chip
+                label="Previous"
+                selected={spaceDirection === 'prev'}
+                onPress={() => setSpaceDirection('prev')}
+              />
+            </View>
+            <Text variant="caption" tone="secondary">
+              Needs Mission Control "move left/right a space" shortcuts enabled on the Mac.
+            </Text>
           </View>
         ) : null}
 

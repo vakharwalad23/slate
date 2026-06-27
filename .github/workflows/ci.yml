@@ -20,7 +20,8 @@ jobs:
       - run: pnpm verify
 
   swift:
-    runs-on: macos-latest
+    # macos-26 ships Xcode 26 / Swift 6.2; older images (Swift 6.0) reject the helper's concurrency.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen

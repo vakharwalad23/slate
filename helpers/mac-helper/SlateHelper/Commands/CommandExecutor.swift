@@ -13,10 +13,17 @@ protocol CommandExecuting: Sendable {
 struct CommandExecutor: CommandExecuting {
     let runner: ProcessRunning
     let activator: AppActivator
+    // Read live at execute time so toggling the opt-in takes effect without a reconnect.
+    let shellEnabled: @Sendable () -> Bool
 
-    init(runner: ProcessRunning = SystemProcessRunner(), activator: AppActivator = AppActivator()) {
+    init(
+        runner: ProcessRunning = SystemProcessRunner(),
+        activator: AppActivator = AppActivator(),
+        shellEnabled: @escaping @Sendable () -> Bool = { Settings.allowShell }
+    ) {
         self.runner = runner
         self.activator = activator
+        self.shellEnabled = shellEnabled
     }
 
     func execute(_ command: Command) async -> CommandOutcome {
@@ -32,8 +39,11 @@ struct CommandExecutor: CommandExecuting {
             return await runProcess("/usr/bin/shortcuts", ["run", name], stdin: input)
         case let .runApplescript(script):
             return await runProcess("/usr/bin/osascript", ["-e", script])
-        case .runShell:
-            return CommandOutcome(ok: false, error: "not implemented: run_shell")
+        case let .runShell(script):
+            guard shellEnabled() else {
+                return CommandOutcome(ok: false, error: "shell commands are disabled; enable them in the slate helper menu")
+            }
+            return await runProcess("/bin/sh", ["-c", script])
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }

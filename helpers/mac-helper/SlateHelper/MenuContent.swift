@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuContent: View {
     @Bindable var status: AppStatus
     @State private var portText = ""
+    @State private var allowShell = Settings.allowShell
     // Inline confirm, not .confirmationDialog: presentation APIs are broken inside a .window MenuBarExtra.
     @State private var confirmingRevokeId: String?
 
@@ -127,6 +128,17 @@ struct MenuContent: View {
             .toggleStyle(.checkbox)
             .pointingHandCursor()
 
+            Toggle("Allow shell commands", isOn: $allowShell)
+                .font(.caption)
+                .toggleStyle(.checkbox)
+                .pointingHandCursor()
+                .onChange(of: allowShell) { _, newValue in Settings.allowShell = newValue }
+                .help("Let buttons run arbitrary shell commands")
+            if allowShell {
+                Text("Runs arbitrary commands from paired devices. Restart the helper to update the app.")
+                    .font(.caption2).foregroundStyle(.orange).lineLimit(3)
+            }
+
             Divider()
             HStack {
                 Text("LOGS").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -170,6 +182,7 @@ struct MenuContent: View {
             status.refreshAccessibility()
             status.refreshLoginItem()
             portText = String(status.port)
+            allowShell = Settings.allowShell
         }
     }
 }

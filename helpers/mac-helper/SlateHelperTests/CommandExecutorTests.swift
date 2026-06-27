@@ -47,10 +47,20 @@ final class CommandExecutorTests: XCTestCase {
         XCTAssertEqual(calls.first?.stdin, "hello")
     }
 
-    func testRunShellNotImplemented() async {
-        let outcome = await CommandExecutor(runner: FakeRunner(recorder: CallRecorder(), failure: nil))
+    func testRunShellDisabledByDefault() async {
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: CallRecorder(), failure: nil), shellEnabled: { false })
             .execute(.runShell(script: "echo hi"))
         XCTAssertFalse(outcome.ok)
-        XCTAssertEqual(outcome.error, "not implemented: run_shell")
+        XCTAssertEqual(outcome.error, "shell commands are disabled; enable them in the slate helper menu")
+    }
+
+    func testRunShellRunsViaShellWhenEnabled() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil), shellEnabled: { true })
+            .execute(.runShell(script: "echo hi"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/bin/sh")
+        XCTAssertEqual(calls.first?.args, ["-c", "echo hi"])
     }
 }

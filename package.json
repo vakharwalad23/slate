@@ -10,6 +10,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write .",
+    "verify": "pnpm -F @slate/protocol gen:schema --check && pnpm -F @slate/protocol test && pnpm -F @slate/node-helper test && pnpm -F @slate/protocol type-check && pnpm -F @slate/node-helper type-check && pnpm -F @slate/mobile type-check && biome check .",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -42,11 +42,21 @@
               "type": "string"
             }
           },
-          "required": ["deviceId", "deviceName", "appVersion"],
+          "required": [
+            "deviceId",
+            "deviceName",
+            "appVersion"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -83,7 +93,13 @@
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -121,11 +137,19 @@
               "type": "string"
             }
           },
-          "required": ["code"],
+          "required": [
+            "code"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -163,11 +187,19 @@
               "type": "string"
             }
           },
-          "required": ["token"],
+          "required": [
+            "token"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -211,7 +243,10 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "app"],
+              "required": [
+                "kind",
+                "app"
+              ],
               "additionalProperties": false
             },
             {
@@ -225,7 +260,10 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "bundleId"],
+              "required": [
+                "kind",
+                "bundleId"
+              ],
               "additionalProperties": false
             },
             {
@@ -242,7 +280,10 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "name"],
+              "required": [
+                "kind",
+                "name"
+              ],
               "additionalProperties": false
             },
             {
@@ -256,7 +297,10 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "script"],
+              "required": [
+                "kind",
+                "script"
+              ],
               "additionalProperties": false
             },
             {
@@ -270,13 +314,22 @@
                   "type": "string"
                 }
               },
-              "required": ["kind", "script"],
+              "required": [
+                "kind",
+                "script"
+              ],
               "additionalProperties": false
             }
           ]
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -313,7 +366,13 @@
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -354,11 +413,19 @@
               }
             }
           },
-          "required": ["bundleIds"],
+          "required": [
+            "bundleIds"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -399,11 +466,19 @@
               }
             }
           },
-          "required": ["topics"],
+          "required": [
+            "topics"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -441,11 +516,19 @@
               "type": "number"
             }
           },
-          "required": ["t"],
+          "required": [
+            "t"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -525,11 +608,22 @@
               "type": "boolean"
             }
           },
-          "required": ["helperName", "helperVersion", "capabilities", "paired"],
+          "required": [
+            "helperName",
+            "helperVersion",
+            "capabilities",
+            "paired"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -567,11 +661,19 @@
               "type": "string"
             }
           },
-          "required": ["token"],
+          "required": [
+            "token"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -609,11 +711,69 @@
               "type": "string"
             }
           },
-          "required": ["reason"],
+          "required": [
+            "reason"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "pair_pending"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "expiresInMs": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "expiresInMs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -650,7 +810,13 @@
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -688,11 +854,19 @@
               "type": "string"
             }
           },
-          "required": ["reason"],
+          "required": [
+            "reason"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -734,11 +908,19 @@
             },
             "data": {}
           },
-          "required": ["ok"],
+          "required": [
+            "ok"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -790,16 +972,29 @@
                     "type": "string"
                   }
                 },
-                "required": ["bundleId", "name", "path", "iconVersion"],
+                "required": [
+                  "bundleId",
+                  "name",
+                  "path",
+                  "iconVersion"
+                ],
                 "additionalProperties": false
               }
             }
           },
-          "required": ["apps"],
+          "required": [
+            "apps"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -848,16 +1043,28 @@
                     "type": "string"
                   }
                 },
-                "required": ["bundleId", "pngBase64", "iconVersion"],
+                "required": [
+                  "bundleId",
+                  "pngBase64",
+                  "iconVersion"
+                ],
                 "additionalProperties": false
               }
             }
           },
-          "required": ["icons"],
+          "required": [
+            "icons"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -896,11 +1103,20 @@
             },
             "value": {}
           },
-          "required": ["topic", "value"],
+          "required": [
+            "topic",
+            "value"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -938,11 +1154,19 @@
               "type": "number"
             }
           },
-          "required": ["t"],
+          "required": [
+            "t"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     },
     {
@@ -983,11 +1207,20 @@
               "type": "string"
             }
           },
-          "required": ["code", "message"],
+          "required": [
+            "code",
+            "message"
+          ],
           "additionalProperties": false
         }
       },
-      "required": ["v", "id", "reId", "type", "payload"],
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false
     }
   ]

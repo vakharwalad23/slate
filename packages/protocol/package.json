@@ -13,7 +13,8 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "gen:schema": "tsx scripts/gen-schema.ts"
+    "gen:schema": "tsx scripts/gen-schema.ts",
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "zod": "4.4.3"

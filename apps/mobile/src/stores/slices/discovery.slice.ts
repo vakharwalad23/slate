@@ -57,16 +57,6 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
           if (gen === scanGeneration) addFound(name, host, SCAN_PORT);
         },
         () => gen !== scanGeneration,
-        // Temporary: emitted unconditionally (not __DEV__-gated) so an installed preview APK surfaces
-        // the per-pass scan diagnostics in the logs view; removed once the discovery fix lands.
-        (d) => {
-          if (gen !== scanGeneration) return;
-          get().logWarn(
-            d.prefix === null
-              ? `scan: no Wi-Fi IPv4 after ${d.subnetAttempts} attempts`
-              : `scan: prefix=${d.prefix} (resolved on attempt ${d.subnetAttempts}), probed ${d.hostsProbed}, ack=${d.outcomes.helloAck} openTO=${d.outcomes.openTimeout} to=${d.outcomes.timeout} err=${d.outcomes.error}, found=${d.found}`,
-          );
-        },
       )
         .then((scanned) => {
           if (!scanned && gen === scanGeneration) {

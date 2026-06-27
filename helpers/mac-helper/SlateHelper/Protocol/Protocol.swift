@@ -36,6 +36,7 @@ enum Command: Equatable, Sendable {
     case media(action: String)
     case keystroke(key: String, modifiers: [String])
     case space(direction: String)
+    case appSwitch(direction: String)
     case unknown(kind: String)
 }
 
@@ -72,6 +73,8 @@ extension Command: Codable {
             )
         case "space":
             self = .space(direction: try c.decode(String.self, forKey: .direction))
+        case "app_switch":
+            self = .appSwitch(direction: try c.decode(String.self, forKey: .direction))
         default:
             self = .unknown(kind: kind)
         }
@@ -108,6 +111,9 @@ extension Command: Codable {
             try c.encode(modifiers, forKey: .modifiers)
         case let .space(direction):
             try c.encode("space", forKey: .kind)
+            try c.encode(direction, forKey: .direction)
+        case let .appSwitch(direction):
+            try c.encode("app_switch", forKey: .kind)
             try c.encode(direction, forKey: .direction)
         case let .unknown(kind):
             try c.encode(kind, forKey: .kind)

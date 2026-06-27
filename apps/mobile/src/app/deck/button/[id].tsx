@@ -30,6 +30,7 @@ const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] =
   { kind: 'media', label: 'Media', needs: null },
   { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
   { kind: 'space', label: 'Space', needs: 'keystrokes' },
+  { kind: 'app_switch', label: 'Switch app', needs: 'keystrokes' },
 ];
 
 const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
@@ -104,6 +105,9 @@ export default function ButtonEditor() {
   const [spaceDirection, setSpaceDirection] = useState<SpaceDirection>(
     initialAction?.kind === 'space' ? initialAction.direction : 'next',
   );
+  const [appSwitchDirection, setAppSwitchDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'app_switch' ? initialAction.direction : 'next',
+  );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -153,6 +157,8 @@ export default function ButtonEditor() {
         return { kind: 'keystroke', key: keyToken.trim(), modifiers };
       case 'space':
         return { kind: 'space', direction: spaceDirection };
+      case 'app_switch':
+        return { kind: 'app_switch', direction: appSwitchDirection };
     }
   }
 
@@ -321,6 +327,21 @@ export default function ButtonEditor() {
             <Text variant="caption" tone="secondary">
               Needs Mission Control "move left/right a space" shortcuts enabled on the Mac.
             </Text>
+          </View>
+        ) : null}
+
+        {kind === 'app_switch' ? (
+          <View style={styles.row}>
+            <Chip
+              label="Next"
+              selected={appSwitchDirection === 'next'}
+              onPress={() => setAppSwitchDirection('next')}
+            />
+            <Chip
+              label="Previous"
+              selected={appSwitchDirection === 'prev'}
+              onPress={() => setAppSwitchDirection('prev')}
+            />
           </View>
         ) : null}
 

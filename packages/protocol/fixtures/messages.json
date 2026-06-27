@@ -183,6 +183,19 @@
       }
     },
     {
+      "name": "command.execute app_switch",
+      "frame": {
+        "v": 1,
+        "id": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "app_switch",
+          "direction": "next"
+        }
+      }
+    },
+    {
       "name": "apps.list",
       "frame": {
         "v": 1,

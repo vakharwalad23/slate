@@ -51,6 +51,8 @@ struct CommandExecutor: CommandExecuting {
         case let .space(direction):
             // Mission Control "move left/right a space" - the user must keep those shortcuts enabled.
             return await keystroke(key: direction == "next" ? "right" : "left", modifiers: ["control"])
+        case let .appSwitch(direction):
+            return await appSwitch(direction)
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }
@@ -79,6 +81,28 @@ struct CommandExecutor: CommandExecuting {
     // `set volume output volume` clamps to 0-100, so an over/underflow needs no explicit bounds here.
     private func volumeScript(by delta: Int) -> String {
         "set volume output volume ((output volume of (get volume settings)) + \(delta))"
+    }
+
+    // Deterministic bundle-id order (not most-recently-used): Cmd+Tab synthesis is timing-flaky, so we
+    // enumerate regular apps and activate the neighbour of the frontmost one, which always lands.
+    @MainActor
+    private func appSwitch(_ direction: String) async -> CommandOutcome {
+        guard PermissionProbe.accessibilityGranted() else {
+            return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
+        }
+        let apps = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil }
+            .sorted { ($0.bundleIdentifier ?? "") < ($1.bundleIdentifier ?? "") }
+        guard !apps.isEmpty else {
+            return CommandOutcome(ok: false, error: "no switchable apps are running")
+        }
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let index = apps.firstIndex { $0.bundleIdentifier == front } ?? 0
+        let next = (index + (direction == "next" ? 1 : -1) + apps.count) % apps.count
+        guard let bundleId = apps[next].bundleIdentifier else {
+            return CommandOutcome(ok: false, error: "could not resolve the next app")
+        }
+        return await activator.activate(bundleId: bundleId)
     }
 
     @MainActor

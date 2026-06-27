@@ -412,6 +412,27 @@
                 "direction"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "app_switch"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "next",
+                    "prev"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "direction"
+              ],
+              "additionalProperties": false
             }
           ]
         }

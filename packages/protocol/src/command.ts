@@ -18,6 +18,7 @@ export const CommandSchema = z.discriminatedUnion('kind', [
     modifiers: z.array(z.enum(['cmd', 'shift', 'option', 'control'])),
   }),
   z.object({ kind: z.literal('space'), direction: z.enum(['next', 'prev']) }),
+  z.object({ kind: z.literal('app_switch'), direction: z.enum(['next', 'prev']) }),
 ]);
 
 export type Command = z.infer<typeof CommandSchema>;

@@ -37,12 +37,18 @@ enum Command: Equatable, Sendable {
     case keystroke(key: String, modifiers: [String])
     case space(direction: String)
     case appSwitch(direction: String)
+    indirect case macro(steps: [MacroStep])
     case unknown(kind: String)
+}
+
+struct MacroStep: Codable, Equatable, Sendable {
+    let command: Command
+    let delayMs: Double?
 }
 
 extension Command: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, app, bundleId, name, input, script, action, key, modifiers, direction
+        case kind, app, bundleId, name, input, script, action, key, modifiers, direction, steps
     }
 
     init(from decoder: Decoder) throws {
@@ -75,6 +81,8 @@ extension Command: Codable {
             self = .space(direction: try c.decode(String.self, forKey: .direction))
         case "app_switch":
             self = .appSwitch(direction: try c.decode(String.self, forKey: .direction))
+        case "macro":
+            self = .macro(steps: try c.decode([MacroStep].self, forKey: .steps))
         default:
             self = .unknown(kind: kind)
         }
@@ -115,6 +123,9 @@ extension Command: Codable {
         case let .appSwitch(direction):
             try c.encode("app_switch", forKey: .kind)
             try c.encode(direction, forKey: .direction)
+        case let .macro(steps):
+            try c.encode("macro", forKey: .kind)
+            try c.encode(steps, forKey: .steps)
         case let .unknown(kind):
             try c.encode(kind, forKey: .kind)
         }

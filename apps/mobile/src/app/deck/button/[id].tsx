@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AppPicker } from '@/components/AppPicker';
 import { DeckButtonCell } from '@/components/DeckButtonCell';
+import { MacroEditor } from '@/components/MacroEditor';
 import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import type { DeckButton, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
@@ -16,6 +17,7 @@ type Kind = Command['kind'];
 type MediaAction = Extract<Command, { kind: 'media' }>['action'];
 type KeyModifier = Extract<Command, { kind: 'keystroke' }>['modifiers'][number];
 type SpaceDirection = Extract<Command, { kind: 'space' }>['direction'];
+type MacroStep = Extract<Command, { kind: 'macro' }>['steps'][number];
 type IconSource = 'app' | 'emoji' | 'symbol';
 
 const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
@@ -31,6 +33,7 @@ const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] =
   { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
   { kind: 'space', label: 'Space', needs: 'keystrokes' },
   { kind: 'app_switch', label: 'Switch app', needs: 'keystrokes' },
+  { kind: 'macro', label: 'Macro', needs: null },
 ];
 
 const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
@@ -108,6 +111,9 @@ export default function ButtonEditor() {
   const [appSwitchDirection, setAppSwitchDirection] = useState<SpaceDirection>(
     initialAction?.kind === 'app_switch' ? initialAction.direction : 'next',
   );
+  const [macroSteps, setMacroSteps] = useState<MacroStep[]>(
+    initialAction?.kind === 'macro' ? initialAction.steps : [],
+  );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -159,6 +165,8 @@ export default function ButtonEditor() {
         return { kind: 'space', direction: spaceDirection };
       case 'app_switch':
         return { kind: 'app_switch', direction: appSwitchDirection };
+      case 'macro':
+        return { kind: 'macro', steps: macroSteps };
     }
   }
 
@@ -344,6 +352,8 @@ export default function ButtonEditor() {
             />
           </View>
         ) : null}
+
+        {kind === 'macro' ? <MacroEditor steps={macroSteps} onChange={setMacroSteps} /> : null}
 
         <Text variant="label" tone="secondary">
           Label

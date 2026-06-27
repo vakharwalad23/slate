@@ -47,6 +47,20 @@ final class CommandExecutorTests: XCTestCase {
         XCTAssertEqual(calls.first?.stdin, "hello")
     }
 
+    func testMacroRunsStepsInOrder() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.macro(steps: [
+                MacroStep(command: .launchApp(app: "Safari"), delayMs: nil),
+                MacroStep(command: .launchApp(app: "Mail"), delayMs: nil),
+            ]))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(calls.first?.args, ["-a", "Safari"])
+        XCTAssertEqual(calls.last?.args, ["-a", "Mail"])
+    }
+
     func testMediaVolumeUsesOsascript() async {
         let recorder = CallRecorder()
         let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))

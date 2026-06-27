@@ -196,6 +196,24 @@
       }
     },
     {
+      "name": "command.execute macro",
+      "frame": {
+        "v": 1,
+        "id": "afafafaf-afaf-4faf-8faf-afafafafafaf",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "macro",
+          "steps": [
+            {
+              "command": { "kind": "launch_app", "app": "Calculator" },
+              "delayMs": 100
+            }
+          ]
+        }
+      }
+    },
+    {
       "name": "apps.list",
       "frame": {
         "v": 1,

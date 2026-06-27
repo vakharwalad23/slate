@@ -53,9 +53,23 @@ struct CommandExecutor: CommandExecuting {
             return await keystroke(key: direction == "next" ? "right" : "left", modifiers: ["control"])
         case let .appSwitch(direction):
             return await appSwitch(direction)
+        case let .macro(steps):
+            return await runMacro(steps)
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }
+    }
+
+    // delayMs pauses before each step; the run stops and reports the first step that fails.
+    private func runMacro(_ steps: [MacroStep]) async -> CommandOutcome {
+        for step in steps {
+            if let delay = step.delayMs, delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000))
+            }
+            let outcome = await execute(step.command)
+            if !outcome.ok { return outcome }
+        }
+        return CommandOutcome(ok: true, error: nil)
     }
 
     // Volume needs no permission (osascript); transport keys post HID events, which require Accessibility.

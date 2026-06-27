@@ -47,6 +47,15 @@ final class CommandExecutorTests: XCTestCase {
         XCTAssertEqual(calls.first?.stdin, "hello")
     }
 
+    func testMediaVolumeUsesOsascript() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.media(action: "volume_up"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/usr/bin/osascript")
+    }
+
     func testRunShellDisabledByDefault() async {
         let outcome = await CommandExecutor(runner: FakeRunner(recorder: CallRecorder(), failure: nil), shellEnabled: { false })
             .execute(.runShell(script: "echo hi"))

@@ -336,6 +336,31 @@
                 "script"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "media"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "playpause",
+                    "next",
+                    "prev",
+                    "volume_up",
+                    "volume_down",
+                    "mute"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "action"
+              ],
+              "additionalProperties": false
             }
           ]
         }

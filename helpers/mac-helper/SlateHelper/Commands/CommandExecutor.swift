@@ -44,9 +44,56 @@ struct CommandExecutor: CommandExecuting {
                 return CommandOutcome(ok: false, error: "shell commands are disabled; enable them in the slate helper menu")
             }
             return await runProcess("/bin/sh", ["-c", script])
+        case let .media(action):
+            return await media(action)
         case let .unknown(kind):
             return CommandOutcome(ok: false, error: "not implemented: \(kind)")
         }
+    }
+
+    // Volume needs no permission (osascript); transport keys post HID events, which require Accessibility.
+    private func media(_ action: String) async -> CommandOutcome {
+        switch action {
+        case "volume_up":
+            return await runProcess("/usr/bin/osascript", ["-e", volumeScript(by: 10)])
+        case "volume_down":
+            return await runProcess("/usr/bin/osascript", ["-e", volumeScript(by: -10)])
+        case "mute":
+            return await runProcess(
+                "/usr/bin/osascript",
+                ["-e", "set volume output muted (not (output muted of (get volume settings)))"]
+            )
+        case "playpause": return await postMediaKey(16)
+        case "next": return await postMediaKey(17)
+        case "prev": return await postMediaKey(18)
+        default:
+            return CommandOutcome(ok: false, error: "unknown media action: \(action)")
+        }
+    }
+
+    // `set volume output volume` clamps to 0-100, so an over/underflow needs no explicit bounds here.
+    private func volumeScript(by delta: Int) -> String {
+        "set volume output volume ((output volume of (get volume settings)) + \(delta))"
+    }
+
+    // NX_KEYTYPE_* media keys are NSSystemDefined events with subtype 8; data1 packs keycode + up/down.
+    @MainActor
+    private func postMediaKey(_ keyCode: Int) -> CommandOutcome {
+        guard PermissionProbe.accessibilityGranted() else {
+            return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
+        }
+        for down in [true, false] {
+            let flags = NSEvent.ModifierFlags(rawValue: UInt(down ? 0xA00 : 0xB00))
+            let data1 = (keyCode << 16) | ((down ? 0xA : 0xB) << 8)
+            guard let event = NSEvent.otherEvent(
+                with: .systemDefined, location: .zero, modifierFlags: flags,
+                timestamp: 0, windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1
+            ) else {
+                return CommandOutcome(ok: false, error: "failed to synthesize media key")
+            }
+            event.cgEvent?.post(tap: .cghidEventTap)
+        }
+        return CommandOutcome(ok: true, error: nil)
     }
 
     // open -a matches the Node helper's proven path; bundle ids (contain a dot) retry with -b.

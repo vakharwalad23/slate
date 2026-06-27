@@ -143,6 +143,19 @@
       }
     },
     {
+      "name": "command.execute media",
+      "frame": {
+        "v": 1,
+        "id": "abababab-abab-4bab-8bab-abababababab",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "media",
+          "action": "playpause"
+        }
+      }
+    },
+    {
       "name": "apps.list",
       "frame": {
         "v": 1,

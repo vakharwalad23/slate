@@ -13,6 +13,7 @@ import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
 
 type Kind = Command['kind'];
+type MediaAction = Extract<Command, { kind: 'media' }>['action'];
 type IconSource = 'app' | 'emoji' | 'symbol';
 
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
@@ -22,6 +23,16 @@ const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] =
   { kind: 'run_shortcut', label: 'Run Shortcut', needs: 'runShortcuts' },
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
+  { kind: 'media', label: 'Media', needs: null },
+];
+
+const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
+  { value: 'playpause', label: 'Play/Pause' },
+  { value: 'next', label: 'Next' },
+  { value: 'prev', label: 'Previous' },
+  { value: 'volume_up', label: 'Vol +' },
+  { value: 'volume_down', label: 'Vol -' },
+  { value: 'mute', label: 'Mute' },
 ];
 
 const SWATCHES = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
@@ -73,6 +84,9 @@ export default function ButtonEditor() {
   const [shortcutInput, setShortcutInput] = useState(
     initialAction?.kind === 'run_shortcut' ? (initialAction.input ?? '') : '',
   );
+  const [mediaAction, setMediaAction] = useState<MediaAction>(
+    initialAction?.kind === 'media' ? initialAction.action : 'playpause',
+  );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
       ? initialAction.script
@@ -116,6 +130,8 @@ export default function ButtonEditor() {
         return { kind: 'run_applescript', script };
       case 'run_shell':
         return { kind: 'run_shell', script };
+      case 'media':
+        return { kind: 'media', action: mediaAction };
     }
   }
 
@@ -230,6 +246,19 @@ export default function ButtonEditor() {
             placeholder="script"
             multiline
           />
+        ) : null}
+
+        {kind === 'media' ? (
+          <View style={styles.row}>
+            {MEDIA_ACTIONS.map((m) => (
+              <Chip
+                key={m.value}
+                label={m.label}
+                selected={mediaAction === m.value}
+                onPress={() => setMediaAction(m.value)}
+              />
+            ))}
+          </View>
         ) : null}
 
         <Text variant="label" tone="secondary">

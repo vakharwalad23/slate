@@ -271,6 +271,23 @@
               "properties": {
                 "kind": {
                   "type": "string",
+                  "const": "quit_app"
+                },
+                "bundleId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "bundleId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
                   "const": "run_shortcut"
                 },
                 "name": {

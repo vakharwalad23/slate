@@ -77,6 +77,19 @@
       }
     },
     {
+      "name": "command.execute quit_app",
+      "frame": {
+        "v": 1,
+        "id": "6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a6a",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "quit_app",
+          "bundleId": "com.apple.Calculator"
+        }
+      }
+    },
+    {
       "name": "command.execute run_shortcut",
       "frame": {
         "v": 1,

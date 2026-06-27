@@ -18,6 +18,7 @@ type IconSource = 'app' | 'emoji' | 'symbol';
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
   { kind: 'activate_app', label: 'Activate app', needs: 'launchApps' },
+  { kind: 'quit_app', label: 'Quit app', needs: 'launchApps' },
   { kind: 'run_shortcut', label: 'Run Shortcut', needs: 'runShortcuts' },
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
@@ -62,7 +63,7 @@ export default function ButtonEditor() {
   const [appField, setAppField] = useState(
     initialAction?.kind === 'launch_app'
       ? initialAction.app
-      : initialAction?.kind === 'activate_app'
+      : initialAction?.kind === 'activate_app' || initialAction?.kind === 'quit_app'
         ? initialAction.bundleId
         : '',
   );
@@ -94,7 +95,7 @@ export default function ButtonEditor() {
   const [iconQuery, setIconQuery] = useState('');
 
   const availableKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
-  const isAppKind = kind === 'launch_app' || kind === 'activate_app';
+  const isAppKind = kind === 'launch_app' || kind === 'activate_app' || kind === 'quit_app';
 
   function buildAction(): Command {
     switch (kind) {
@@ -102,6 +103,8 @@ export default function ButtonEditor() {
         return { kind: 'launch_app', app: appField.trim() };
       case 'activate_app':
         return { kind: 'activate_app', bundleId: appField.trim() };
+      case 'quit_app':
+        return { kind: 'quit_app', bundleId: appField.trim() };
       case 'run_shortcut': {
         const name = shortcutName.trim();
         const input = shortcutInput.trim();

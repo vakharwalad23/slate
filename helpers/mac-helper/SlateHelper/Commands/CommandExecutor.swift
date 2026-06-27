@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 struct CommandOutcome: Sendable, Equatable {
@@ -24,6 +25,8 @@ struct CommandExecutor: CommandExecuting {
             return await launch(app)
         case let .activateApp(bundleId):
             return await activator.activate(bundleId: bundleId)
+        case let .quitApp(bundleId):
+            return await quit(bundleId)
         case let .runShortcut(name, input):
             // input is piped to `shortcuts run` stdin; the Shortcut must start with a "Receive input" step.
             return await runProcess("/usr/bin/shortcuts", ["run", name], stdin: input)
@@ -52,6 +55,14 @@ struct CommandExecutor: CommandExecuting {
             }
             return CommandOutcome(ok: false, error: describe(error))
         }
+    }
+
+    // Idempotent: an already-quit app is the desired end state, so report success rather than an error.
+    @MainActor
+    private func quit(_ bundleId: String) -> CommandOutcome {
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
+        for app in running { app.terminate() }
+        return CommandOutcome(ok: true, error: nil)
     }
 
     private func runProcess(_ path: String, _ args: [String], stdin: String? = nil) async -> CommandOutcome {

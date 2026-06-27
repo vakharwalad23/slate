@@ -29,6 +29,7 @@ struct IconEntry: Codable, Sendable, Equatable {
 enum Command: Equatable, Sendable {
     case launchApp(app: String)
     case activateApp(bundleId: String)
+    case quitApp(bundleId: String)
     case runShortcut(name: String, input: String?)
     case runApplescript(script: String)
     case runShell(script: String)
@@ -46,6 +47,8 @@ extension Command: Codable {
             self = .launchApp(app: try c.decode(String.self, forKey: .app))
         case "activate_app":
             self = .activateApp(bundleId: try c.decode(String.self, forKey: .bundleId))
+        case "quit_app":
+            self = .quitApp(bundleId: try c.decode(String.self, forKey: .bundleId))
         case "run_shortcut":
             self = .runShortcut(
                 name: try c.decode(String.self, forKey: .name),
@@ -68,6 +71,9 @@ extension Command: Codable {
             try c.encode(app, forKey: .app)
         case let .activateApp(bundleId):
             try c.encode("activate_app", forKey: .kind)
+            try c.encode(bundleId, forKey: .bundleId)
+        case let .quitApp(bundleId):
+            try c.encode("quit_app", forKey: .kind)
             try c.encode(bundleId, forKey: .bundleId)
         case let .runShortcut(name, input):
             try c.encode("run_shortcut", forKey: .kind)

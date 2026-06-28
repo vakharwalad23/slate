@@ -76,6 +76,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
     switch (message.type) {
       case 'auth_ok':
         set({ authPhase: 'paired', pairFailureReason: null });
+        get().subscribeLiveState();
         break;
       case 'pair_ok':
         void writeToken(message.payload.token);
@@ -85,6 +86,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
           pairFailureReason: null,
           pairExpiresAt: null,
         });
+        get().subscribeLiveState();
         break;
       case 'auth_error':
         void deleteToken();

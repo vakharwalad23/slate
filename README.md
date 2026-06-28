@@ -12,6 +12,9 @@
 [![Swift](https://img.shields.io/badge/helper-Swift%206.2-F05138?logo=swift&logoColor=white)](https://www.swift.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/vakharwalad23/slate?logo=github)](https://github.com/vakharwalad23/slate/stargazers)
+[![Download](https://img.shields.io/github/v/release/vakharwalad23/slate?label=download&logo=github&color=5B4EE6)](https://github.com/vakharwalad23/slate/releases/latest)
+
+**[Download the latest release](https://github.com/vakharwalad23/slate/releases/latest)** - macOS helper DMG + Android APK
 
 </div>
 
@@ -24,6 +27,12 @@ send keystrokes, switch Spaces, control media, run multi-step macros, and more. 
 real macOS app icons, pulled live from the Mac. Local-network only, with secure pairing.
 
 Built with React Native / Expo (one app for iOS and Android) and a native Swift menu-bar helper.
+
+> [!NOTE]
+> slate is local-network only and pairs with a revocable per-device token, but traffic is **not yet
+> end-to-end encrypted** - on an untrusted Wi-Fi it is open to man-in-the-middle / replay. App-layer
+> E2E encryption (code-authenticated X25519 + ChaCha20-Poly1305) is the next priority - see
+> [Security](#security). Until then, keep the helper off untrusted networks.
 
 ## Why slate?
 
@@ -59,6 +68,9 @@ your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at an
   IP after a network change.
 - **A real menu-bar helper.** Server status, pairing code, paired-device list with revoke, a logs
   panel, a configurable port, and launch-at-login.
+
+> New to slate? The **[user guide](docs/guide.md)** walks through every feature, option, and gesture
+> step by step.
 
 ## How it works
 
@@ -225,9 +237,10 @@ type-check pass. `main` is protected: changes land via pull request, not direct 
 
 ## Docs
 
-See [`docs/`](./docs): [React Native / Expo](./docs/react-native-expo.md) |
-[code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) |
-[SwiftUI helper](./docs/swiftui.md).
+New here? Read the **[slate user guide](./docs/guide.md)** - every feature and how to use it.
+
+Developer docs in [`docs/`](./docs): [React Native / Expo](./docs/react-native-expo.md) |
+[code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) | [SwiftUI helper](./docs/swiftui.md).
 
 ## License
 

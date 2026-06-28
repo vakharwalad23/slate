@@ -50,6 +50,9 @@ final class ProtocolConformanceTests: XCTestCase {
     private func assertShape(_ encoded: [String: Any], matches frame: [String: Any], _ name: String) {
         XCTAssertEqual(encoded["type"] as? String, frame["type"] as? String, name)
         XCTAssertEqual(encoded["v"] as? Int, 1, name)
+        // reId must always be present (null when nil): the phone's envelope schema requires the key,
+        // so an omitted reId silently drops the frame (e.g. unsolicited state.update / pair_pending).
+        XCTAssertNotNil(encoded["reId"], "reId key must be present (null when nil): \(name)")
         XCTAssertEqual(deepKeys(encoded["payload"]), deepKeys(frame["payload"]), "payload shape for \(name)")
     }
 

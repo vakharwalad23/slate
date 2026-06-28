@@ -1,6 +1,6 @@
 import type { BaseCommand, Command } from '@slate/protocol';
 import { StyleSheet, View } from 'react-native';
-import { Button, Chip, PressableScale, Text, TextField } from '@/components/ui';
+import { Button, Chip, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import { radii, spacing, useTheme } from '@/theme';
 
 // ponytail: a self-contained step builder rather than reusing the main button editor - its app picker
@@ -203,16 +203,16 @@ export function MacroEditor({
             </Text>
             <View style={styles.stepHeadRight}>
               <PressableScale haptics={false} onPress={() => move(i, i - 1)}>
-                <Text tone="secondary">^</Text>
+                <Icon name="arrow-up" size={20} color={colors.textSecondary} />
               </PressableScale>
               <PressableScale haptics={false} onPress={() => move(i, i + 1)}>
-                <Text tone="secondary">v</Text>
+                <Icon name="arrow-down" size={20} color={colors.textSecondary} />
               </PressableScale>
               <PressableScale
                 haptics={false}
                 onPress={() => onChange(steps.filter((_, idx) => idx !== i))}
               >
-                <Text tone="danger">x</Text>
+                <Icon name="close" size={20} color={colors.danger} />
               </PressableScale>
             </View>
           </View>

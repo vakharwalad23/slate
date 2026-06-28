@@ -32,6 +32,20 @@ private struct OutFrame<P: Encodable>: Encodable {
     let reId: String?
     let type: String
     let payload: P
+
+    enum CodingKeys: String, CodingKey { case v, id, reId, type, payload }
+
+    // Always emit reId (null when nil). Synthesized Codable omits nil optionals, but the envelope
+    // contract + the phone's reId schema require the key present, so an unsolicited push (reId nil,
+    // e.g. state.update / pair_pending) would otherwise fail to parse on the phone and be dropped.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(v, forKey: .v)
+        try c.encode(id, forKey: .id)
+        if let reId { try c.encode(reId, forKey: .reId) } else { try c.encodeNil(forKey: .reId) }
+        try c.encode(type, forKey: .type)
+        try c.encode(payload, forKey: .payload)
+    }
 }
 
 private struct EmptyPayload: Codable {}

@@ -20,6 +20,8 @@ export type DeckSlice = {
   setCurrentPage: (pageId: string) => void;
   addDeck: () => void;
   renameDeck: (deckId: string, name: string) => void;
+  deleteDeck: (deckId: string) => void;
+  clearAllData: () => void;
   addPage: (deckId: string) => void;
   deletePage: (pageId: string) => void;
   reorderPage: (deckId: string, from: number, to: number) => void;
@@ -75,6 +77,30 @@ export const createDeckSlice: StateCreator<RootState, [], [], DeckSlice> = (set)
     set((state) => ({
       decks: state.decks.map((deck) => (deck.id === deckId ? { ...deck, name } : deck)),
     })),
+
+  // Never delete the last deck; reselect a sibling when the deleted deck was current.
+  deleteDeck: (deckId) =>
+    set((state) => {
+      if (state.decks.length <= 1) return {};
+      const decks = state.decks.filter((d) => d.id !== deckId);
+      if (deckId !== state.currentDeckId) return { decks };
+      const next = decks[0];
+      return { decks, currentDeckId: next?.id ?? null, currentPageId: next?.pages[0]?.id ?? null };
+    }),
+
+  // Full local reset: wipes decks back to a seed and forgets the saved connection (the persisted set).
+  clearAllData: () =>
+    set(() => {
+      const deck = emptyDeck();
+      return {
+        decks: [deck],
+        currentDeckId: deck.id,
+        currentPageId: deck.pages[0]?.id ?? null,
+        host: '',
+        port: 8765,
+        helperName: null,
+      };
+    }),
 
   addPage: (deckId) =>
     set((state) => {

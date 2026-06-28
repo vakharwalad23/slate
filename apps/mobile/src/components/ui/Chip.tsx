@@ -7,15 +7,18 @@ export function Chip({
   label,
   selected = false,
   onPress,
+  onLongPress,
 }: {
   label: string;
   selected?: boolean;
   onPress: () => void;
+  onLongPress?: (() => void) | undefined;
 }) {
   const { colors } = useTheme();
   return (
     <PressableScale
       onPress={onPress}
+      onLongPress={onLongPress}
       style={[
         styles.chip,
         selected

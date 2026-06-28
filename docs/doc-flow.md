@@ -81,3 +81,36 @@ helper: TokenStore removes token
 helper: ConnectionRegistry.closeIfDevice -> closes live socket for that device
 app: receives close, enters reconnect path -> auth fails -> enters needs_pairing
 ```
+
+## Live-state subscribe
+
+```
+app                         helper
+ |  (after auth_ok or pair_ok, gated on capabilities.liveState)
+ |  subscribe.state { topics: ["foregroundApp"] }  -->
+ |                          ForegroundMonitor starts; pushes current frontmost immediately
+ |  <-- state.update { topic: "foregroundApp", value: bundleId }
+ |  setForegroundApp(bundleId)
+ |  if a deck's autoProfile.matchBundleId matches -> switch to that deck
+ |       ...repeated on every NSWorkspace app-activation notification
+ |  (disconnect: foregroundApp cleared; ForegroundMonitor.stop() removes the observer)
+```
+
+ForegroundMonitor lives in ClientSession.swift; no Accessibility permission needed. A re-subscribe
+or empty topic list replaces any existing monitor cleanly.
+
+## Per-button gesture dispatch
+
+```
+DeckButtonCell (view mode)
+  tap          -> sendCommand(button.action)
+  long-press   -> sendCommand(gestures.longPress)   [only if assigned]
+  double-tap   -> sendCommand(gestures.doubleTap)   [only if assigned; Exclusive with single tap]
+  swipe(dir)   -> sendCommand(gestures.swipe<Dir>)  [only if assigned; Pan.blocksExternalGesture
+                  wins over the grid page-nav pan]
+  fast path: buttons with no double-tap and no swipe use PressableScale (no RNGC overhead)
+
+SortableGrid (edit mode, pencil toggle)
+  quick tap (<200 ms)  -> router.push /deck/button/:id  (opens editor)
+  hold + drag          -> reorder  (Pan.activateAfterLongPress 160 ms, Exclusive over tap)
+```

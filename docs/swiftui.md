@@ -28,7 +28,12 @@ SlateHelper/
     ConnectionRegistry.swift  actor; enforces one active connection - newest replaces prior;
                               closeIfDevice() used by revoke to force-drop the live connection
   Dispatch/
-    ClientSession.swift     actor; per-connection auth state; routes all inbound message types
+    ClientSession.swift     actor; per-connection auth state; routes all inbound message types;
+                            handles subscribe.state -> starts/stops ForegroundMonitor
+    ForegroundMonitor       (in ClientSession.swift) @MainActor; observes
+                            NSWorkspace.didActivateApplicationNotification; pushes state.update
+                            with bundleId immediately on subscribe and on each activation;
+                            no Accessibility needed; stop() removes the observer
   Discovery/
     BonjourAdvertiser.swift dns-sd C API (DNSServiceRegister) for _slate._tcp
                             NWListener.Service avoided - FB14321888
@@ -113,14 +118,40 @@ a small bound before returning an error.
 Shortcuts invocation. Distributed as a self-signed DMG; users clear quarantine with
 `xattr -dr com.apple.quarantine`.
 
-## Command kinds (v1)
+**`run_shell` opt-in** - `run_shell` is off by default; `Settings.allowShell` persists the toggle.
+`shellEnabled` is read live at execute time so toggling takes effect without a reconnect. The
+`runShell` capability in `HelperConfig` mirrors the current toggle value.
 
-| kind | macOS action |
-|------|-------------|
-| `launch_app` | `open -a <name>` then `-b <bundleId>` fallback |
-| `activate_app` | `NSRunningApplication` activate + frontmost verify |
-| `run_shortcut` | Shortcuts via `shortcuts run` |
-| `run_applescript` | `osascript -e` |
+**Accessibility-gated commands** - `media` HID events, `keystroke`, `space`, and `app_switch` call
+`PermissionProbe.accessibilityGranted()` (silent, no prompt) and return
+`PermissionProbe.notGrantedMessage` on failure rather than silently doing nothing.
+
+**`KeyTokens` - stable wire tokens** - `keystroke` sends human-readable token strings (`left`,
+`f5`, `space`, etc.); `KeyTokens.swift` maps them to ANSI virtual key codes on the helper side.
+Arrow keys also carry `maskSecondaryFn + maskNumericPad` device flags because WindowServer
+shortcuts (Mission Control spaces) only fire when a synthetic arrow carries those flags.
+
+**`liveState` capability and ForegroundMonitor** - `HelperConfig.capabilities.liveState` is always
+`true`. `ForegroundMonitor` (in `ClientSession.swift`) observes
+`NSWorkspace.didActivateApplicationNotification` on `@MainActor`; no Accessibility needed. It
+pushes the current frontmost immediately on subscription and on each subsequent activation.
+`teardown()` calls `ForegroundMonitor.stop()` so no observer leaks on disconnect.
+
+## Command kinds
+
+| kind | macOS action | notes |
+|------|-------------|-------|
+| `launch_app` | `open -a <name>` then `-b <bundleId>` fallback | |
+| `activate_app` | `NSRunningApplication` activate + frontmost verify | Tahoe retry loop |
+| `quit_app` | `NSRunningApplication.terminate` (idempotent) | |
+| `run_shortcut` | `shortcuts run <name>` | optional input piped to stdin |
+| `run_applescript` | `osascript -e` | |
+| `run_shell` | `/bin/sh -c` | opt-in; off by default (`Settings.allowShell`) |
+| `media` | volume: osascript; playpause/next/prev: NSSystemDefined HID | HID path Accessibility-gated |
+| `keystroke` | `CGEvent` + `KeyTokens` ANSI map; arrows get Fn+numpad flags | Accessibility-gated |
+| `space` | Ctrl+arrow via `keystroke` path | Accessibility-gated |
+| `app_switch` | enumerate `.regular` apps by bundleId, activate neighbour | Accessibility-gated |
+| `macro` | sequential steps; per-step `delayMs`; stops on first failure | cannot nest a macro |
 
 ## Distribution
 

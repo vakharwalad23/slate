@@ -81,6 +81,7 @@ function GestureButton({
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  // maxDuration(250) so a hold is NOT a tap (it falls through to long-press).
   const single = Gesture.Tap()
     .maxDuration(250)
     .runOnJS(true)
@@ -96,9 +97,10 @@ function GestureButton({
         onPress();
       }
     });
+  // maxDelay(280): the single tap waits this long for a second tap, so launch stays reasonably snappy.
   const double = Gesture.Tap()
     .numberOfTaps(2)
-    .maxDuration(320)
+    .maxDelay(280)
     .runOnJS(true)
     .onEnd((_e, success) => {
       if (success) onDoubleTap();
@@ -108,8 +110,10 @@ function GestureButton({
     .runOnJS(true)
     .onStart(() => onLongPress());
 
+  // Long-press runs alongside the taps (it is temporally distinct); single defers to double via Exclusive.
+  const gesture = Gesture.Simultaneous(long, Gesture.Exclusive(double, single));
   return (
-    <GestureDetector gesture={Gesture.Race(long, Gesture.Exclusive(double, single))}>
+    <GestureDetector gesture={gesture}>
       <Animated.View style={animatedStyle}>
         <DeckButtonFace button={button} size={size} />
       </Animated.View>

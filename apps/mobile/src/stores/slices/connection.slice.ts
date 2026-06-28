@@ -120,6 +120,11 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         webSocketTransport.send(subscribeStateMessage([FOREGROUND_TOPIC]));
       }
     },
-    setForegroundApp: (bundleId) => set({ foregroundApp: bundleId }),
+    setForegroundApp: (bundleId) => {
+      set({ foregroundApp: bundleId });
+      const { decks, currentDeckId, setCurrentDeck } = get();
+      const match = decks.find((d) => d.autoProfile?.matchBundleId === bundleId);
+      if (match !== undefined && match.id !== currentDeckId) setCurrentDeck(match.id);
+    },
   };
 };

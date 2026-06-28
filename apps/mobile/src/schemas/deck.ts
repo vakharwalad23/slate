@@ -41,6 +41,8 @@ export const DeckSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   pages: z.array(PageSchema),
+  // Auto-activate this deck when the Mac's frontmost app matches (needs the helper's liveState).
+  autoProfile: z.object({ matchBundleId: z.string() }).optional(),
 });
 
 export type IconRef = z.infer<typeof IconRefSchema>;

@@ -20,6 +20,7 @@ export type DeckSlice = {
   setCurrentPage: (pageId: string) => void;
   addDeck: () => void;
   renameDeck: (deckId: string, name: string) => void;
+  setDeckAutoProfile: (deckId: string, matchBundleId: string | null) => void;
   deleteDeck: (deckId: string) => void;
   clearAllData: () => void;
   addPage: (deckId: string) => void;
@@ -76,6 +77,18 @@ export const createDeckSlice: StateCreator<RootState, [], [], DeckSlice> = (set)
   renameDeck: (deckId, name) =>
     set((state) => ({
       decks: state.decks.map((deck) => (deck.id === deckId ? { ...deck, name } : deck)),
+    })),
+
+  // null clears the binding; delete (not = undefined) to satisfy exactOptionalPropertyTypes.
+  setDeckAutoProfile: (deckId, matchBundleId) =>
+    set((state) => ({
+      decks: state.decks.map((deck) => {
+        if (deck.id !== deckId) return deck;
+        const updated = { ...deck };
+        if (matchBundleId !== null) updated.autoProfile = { matchBundleId };
+        else delete updated.autoProfile;
+        return updated;
+      }),
     })),
 
   // Never delete the last deck; reselect a sibling when the deleted deck was current.

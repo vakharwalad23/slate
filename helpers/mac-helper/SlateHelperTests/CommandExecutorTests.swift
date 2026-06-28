@@ -2,16 +2,16 @@ import XCTest
 @testable import SlateHelper
 
 private actor CallRecorder {
-    private(set) var calls: [(path: String, args: [String])] = []
-    func record(_ path: String, _ args: [String]) { calls.append((path, args)) }
+    private(set) var calls: [(path: String, args: [String], stdin: String?)] = []
+    func record(_ path: String, _ args: [String], _ stdin: String?) { calls.append((path, args, stdin)) }
 }
 
 private struct FakeRunner: ProcessRunning {
     let recorder: CallRecorder
     let failure: ProcessRunError?
 
-    func run(_ launchPath: String, _ args: [String]) async throws -> String {
-        await recorder.record(launchPath, args)
+    func run(_ launchPath: String, _ args: [String], stdin: String?) async throws -> String {
+        await recorder.record(launchPath, args, stdin)
         if let failure { throw failure }
         return ""
     }
@@ -36,10 +36,54 @@ final class CommandExecutorTests: XCTestCase {
         XCTAssertEqual(outcome.error, "no such app")
     }
 
-    func testRunShellNotImplemented() async {
-        let outcome = await CommandExecutor(runner: FakeRunner(recorder: CallRecorder(), failure: nil))
+    func testRunShortcutPipesInputToStdin() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.runShortcut(name: "My Shortcut", input: "hello"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/usr/bin/shortcuts")
+        XCTAssertEqual(calls.first?.args, ["run", "My Shortcut"])
+        XCTAssertEqual(calls.first?.stdin, "hello")
+    }
+
+    func testMacroRunsStepsInOrder() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.macro(steps: [
+                MacroStep(command: .launchApp(app: "Safari"), delayMs: nil),
+                MacroStep(command: .launchApp(app: "Mail"), delayMs: nil),
+            ]))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(calls.first?.args, ["-a", "Safari"])
+        XCTAssertEqual(calls.last?.args, ["-a", "Mail"])
+    }
+
+    func testMediaVolumeUsesOsascript() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil))
+            .execute(.media(action: "volume_up"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/usr/bin/osascript")
+    }
+
+    func testRunShellDisabledByDefault() async {
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: CallRecorder(), failure: nil), shellEnabled: { false })
             .execute(.runShell(script: "echo hi"))
         XCTAssertFalse(outcome.ok)
-        XCTAssertEqual(outcome.error, "not implemented: run_shell")
+        XCTAssertEqual(outcome.error, "shell commands are disabled; enable them in the slate helper menu")
+    }
+
+    func testRunShellRunsViaShellWhenEnabled() async {
+        let recorder = CallRecorder()
+        let outcome = await CommandExecutor(runner: FakeRunner(recorder: recorder, failure: nil), shellEnabled: { true })
+            .execute(.runShell(script: "echo hi"))
+        XCTAssertTrue(outcome.ok)
+        let calls = await recorder.calls
+        XCTAssertEqual(calls.first?.path, "/bin/sh")
+        XCTAssertEqual(calls.first?.args, ["-c", "echo hi"])
     }
 }

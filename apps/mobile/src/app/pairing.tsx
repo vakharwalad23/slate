@@ -114,6 +114,9 @@ export default function PairingScreen() {
             Pairing failed: {pairFailureReason}
           </Text>
         ) : null}
+        <Text variant="body" tone="secondary" style={styles.center}>
+          You will enter the 6-digit code shown on your Mac.
+        </Text>
         <Button title="Pair" onPress={beginPairing} style={styles.fullWidth} />
       </Surface>
     </Screen>

@@ -77,6 +77,19 @@
       }
     },
     {
+      "name": "command.execute quit_app",
+      "frame": {
+        "v": 1,
+        "id": "6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a6a",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "quit_app",
+          "bundleId": "com.apple.Calculator"
+        }
+      }
+    },
+    {
       "name": "command.execute run_shortcut",
       "frame": {
         "v": 1,
@@ -126,6 +139,77 @@
         "payload": {
           "kind": "run_shell",
           "script": "echo hi"
+        }
+      }
+    },
+    {
+      "name": "command.execute media",
+      "frame": {
+        "v": 1,
+        "id": "abababab-abab-4bab-8bab-abababababab",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "media",
+          "action": "playpause"
+        }
+      }
+    },
+    {
+      "name": "command.execute keystroke",
+      "frame": {
+        "v": 1,
+        "id": "acacacac-acac-4cac-8cac-acacacacacac",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "keystroke",
+          "key": "c",
+          "modifiers": ["cmd"]
+        }
+      }
+    },
+    {
+      "name": "command.execute space",
+      "frame": {
+        "v": 1,
+        "id": "adadadad-adad-4dad-8dad-adadadadadad",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "space",
+          "direction": "next"
+        }
+      }
+    },
+    {
+      "name": "command.execute app_switch",
+      "frame": {
+        "v": 1,
+        "id": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "app_switch",
+          "direction": "next"
+        }
+      }
+    },
+    {
+      "name": "command.execute macro",
+      "frame": {
+        "v": 1,
+        "id": "afafafaf-afaf-4faf-8faf-afafafafafaf",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "macro",
+          "steps": [
+            {
+              "command": { "kind": "launch_app", "app": "Calculator" },
+              "delayMs": 100
+            }
+          ]
         }
       }
     },

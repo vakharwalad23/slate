@@ -16,6 +16,9 @@ export function TextField({ style, ...props }: TextInputProps) {
           borderRadius: radii.md,
           padding: spacing.md,
           fontSize: fontSize.md,
+          // Reset tracking: Fabric recycles native TextInput views, so a field with no explicit
+          // letterSpacing can inherit the pairing code input's 12pt spacing on iOS.
+          letterSpacing: 0,
         },
         style,
       ]}

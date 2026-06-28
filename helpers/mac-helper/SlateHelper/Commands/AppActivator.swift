@@ -7,10 +7,7 @@ struct AppActivator: Sendable {
     @MainActor
     func activate(bundleId: String) async -> CommandOutcome {
         guard AXIsProcessTrusted() else {
-            return CommandOutcome(
-                ok: false,
-                error: "accessibility not granted; enable slate helper in System Settings > Privacy and Security > Accessibility"
-            )
+            return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
         }
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first else {
             return CommandOutcome(ok: false, error: "app not running: \(bundleId)")

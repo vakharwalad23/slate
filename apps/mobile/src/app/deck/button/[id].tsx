@@ -2,25 +2,51 @@ import type { Capabilities, Command } from '@slate/protocol';
 import * as Crypto from 'expo-crypto';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AppPicker } from '@/components/AppPicker';
 import { DeckButtonCell } from '@/components/DeckButtonCell';
+import { MacroEditor } from '@/components/MacroEditor';
 import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
+import { defaultIcon, defaultLabel } from '@/lib/action-defaults';
 import type { DeckButton, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
 
 type Kind = Command['kind'];
+type MediaAction = Extract<Command, { kind: 'media' }>['action'];
+type KeyModifier = Extract<Command, { kind: 'keystroke' }>['modifiers'][number];
+type SpaceDirection = Extract<Command, { kind: 'space' }>['direction'];
+type MacroStep = Extract<Command, { kind: 'macro' }>['steps'][number];
 type IconSource = 'app' | 'emoji' | 'symbol';
 
+const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
+
+// Remembers the last action picked this session so a new button starts on it, not always launch_app.
+let lastKind: Kind = 'launch_app';
+
+// quit_app is no longer a standalone kind - it is offered as "Quit on double-tap" on an app button.
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
   { kind: 'activate_app', label: 'Activate app', needs: 'launchApps' },
   { kind: 'run_shortcut', label: 'Run Shortcut', needs: 'runShortcuts' },
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
+  { kind: 'media', label: 'Media', needs: null },
+  { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
+  { kind: 'space', label: 'Space', needs: 'keystrokes' },
+  { kind: 'app_switch', label: 'Switch app', needs: 'keystrokes' },
+  { kind: 'macro', label: 'Macro', needs: null },
+];
+
+const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
+  { value: 'playpause', label: 'Play/Pause' },
+  { value: 'next', label: 'Next' },
+  { value: 'prev', label: 'Previous' },
+  { value: 'volume_up', label: 'Vol +' },
+  { value: 'volume_down', label: 'Vol -' },
+  { value: 'mute', label: 'Mute' },
 ];
 
 const SWATCHES = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
@@ -58,16 +84,42 @@ export default function ButtonEditor() {
   );
 
   const initialAction = existing?.action;
-  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? 'launch_app');
+  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? lastKind);
+  const [quitOnDoubleTap, setQuitOnDoubleTap] = useState(
+    existing?.gestures?.doubleTap?.kind === 'quit_app',
+  );
   const [appField, setAppField] = useState(
     initialAction?.kind === 'launch_app'
       ? initialAction.app
-      : initialAction?.kind === 'activate_app'
+      : initialAction?.kind === 'activate_app' || initialAction?.kind === 'quit_app'
         ? initialAction.bundleId
         : '',
   );
   const [shortcutName, setShortcutName] = useState(
     initialAction?.kind === 'run_shortcut' ? initialAction.name : '',
+  );
+  const [shortcutInput, setShortcutInput] = useState(
+    initialAction?.kind === 'run_shortcut' ? (initialAction.input ?? '') : '',
+  );
+  const [mediaAction, setMediaAction] = useState<MediaAction>(
+    initialAction?.kind === 'media' ? initialAction.action : 'playpause',
+  );
+  const [keyToken, setKeyToken] = useState(
+    initialAction?.kind === 'keystroke' ? initialAction.key : '',
+  );
+  const [modifiers, setModifiers] = useState<KeyModifier[]>(
+    initialAction?.kind === 'keystroke' ? initialAction.modifiers : [],
+  );
+  const toggleModifier = (m: KeyModifier) =>
+    setModifiers((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
+  const [spaceDirection, setSpaceDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'space' ? initialAction.direction : 'next',
+  );
+  const [appSwitchDirection, setAppSwitchDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'app_switch' ? initialAction.direction : 'next',
+  );
+  const [macroSteps, setMacroSteps] = useState<MacroStep[]>(
+    initialAction?.kind === 'macro' ? initialAction.steps : [],
   );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
@@ -91,7 +143,7 @@ export default function ButtonEditor() {
   const [iconQuery, setIconQuery] = useState('');
 
   const availableKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
-  const isAppKind = kind === 'launch_app' || kind === 'activate_app';
+  const isAppKind = kind === 'launch_app' || kind === 'activate_app' || kind === 'quit_app';
 
   function buildAction(): Command {
     switch (kind) {
@@ -99,12 +151,29 @@ export default function ButtonEditor() {
         return { kind: 'launch_app', app: appField.trim() };
       case 'activate_app':
         return { kind: 'activate_app', bundleId: appField.trim() };
-      case 'run_shortcut':
-        return { kind: 'run_shortcut', name: shortcutName.trim() };
+      case 'quit_app':
+        return { kind: 'quit_app', bundleId: appField.trim() };
+      case 'run_shortcut': {
+        const name = shortcutName.trim();
+        const input = shortcutInput.trim();
+        return input !== ''
+          ? { kind: 'run_shortcut', name, input }
+          : { kind: 'run_shortcut', name };
+      }
       case 'run_applescript':
         return { kind: 'run_applescript', script };
       case 'run_shell':
         return { kind: 'run_shell', script };
+      case 'media':
+        return { kind: 'media', action: mediaAction };
+      case 'keystroke':
+        return { kind: 'keystroke', key: keyToken.trim(), modifiers };
+      case 'space':
+        return { kind: 'space', direction: spaceDirection };
+      case 'app_switch':
+        return { kind: 'app_switch', direction: appSwitchDirection };
+      case 'macro':
+        return { kind: 'macro', steps: macroSteps };
     }
   }
 
@@ -117,23 +186,34 @@ export default function ButtonEditor() {
     return { kind: 'glyph', name: label.trim() === '' ? 'app' : label.trim() };
   }
 
+  // Fall back to the action's implied icon/label so an action-only button needs no manual icon step.
+  const action = buildAction();
+  const builtIcon = buildIcon();
+  const resolvedIcon = builtIcon.kind === 'glyph' ? (defaultIcon(action) ?? builtIcon) : builtIcon;
+  const resolvedLabel = label.trim() !== '' ? label.trim() : defaultLabel(action);
+
   const previewButton: DeckButton = {
     id: 'preview',
     position: { row: 0, col: 0 },
-    icon: buildIcon(),
-    action: { kind: 'launch_app', app: '' },
-    ...(label.trim() !== '' && { label: label.trim() }),
+    icon: resolvedIcon,
+    action,
+    ...(resolvedLabel !== undefined && { label: resolvedLabel }),
     ...(color !== undefined && { color }),
   };
 
   function save() {
     if (pageId === null) return;
-    const trimmedLabel = label.trim();
+    lastKind = kind;
+    const gestures =
+      isAppKind && quitOnDoubleTap && appField.trim() !== ''
+        ? { doubleTap: { kind: 'quit_app' as const, bundleId: appField.trim() } }
+        : {};
     const base = {
-      icon: buildIcon(),
-      action: buildAction(),
-      ...(trimmedLabel !== '' && { label: trimmedLabel }),
+      icon: resolvedIcon,
+      action,
+      ...(resolvedLabel !== undefined && { label: resolvedLabel }),
       ...(color !== undefined && { color }),
+      ...(isAppKind && { gestures }),
     };
     if (isNew) {
       const n = buttonCount;
@@ -150,8 +230,18 @@ export default function ButtonEditor() {
   }
 
   function remove() {
-    if (pageId !== null && !isNew) deleteButton(pageId, id);
-    router.back();
+    if (pageId === null) return;
+    Alert.alert('Delete this button?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteButton(pageId, id);
+          router.back();
+        },
+      },
+    ]);
   }
 
   const iconMatches = ICON_CHOICES.filter((name) => name.includes(iconQuery.trim().toLowerCase()));
@@ -193,15 +283,27 @@ export default function ButtonEditor() {
               autoCapitalize="none"
               placeholder="app name or bundle id"
             />
+            <Chip
+              label="Quit on double-tap"
+              selected={quitOnDoubleTap}
+              onPress={() => setQuitOnDoubleTap((v) => !v)}
+            />
           </View>
         ) : null}
 
         {kind === 'run_shortcut' ? (
-          <TextField
-            value={shortcutName}
-            onChangeText={setShortcutName}
-            placeholder="Shortcut name"
-          />
+          <>
+            <TextField
+              value={shortcutName}
+              onChangeText={setShortcutName}
+              placeholder="Shortcut name"
+            />
+            <TextField
+              value={shortcutInput}
+              onChangeText={setShortcutInput}
+              placeholder="Input (optional, piped to the Shortcut)"
+            />
+          </>
         ) : null}
 
         {kind === 'run_applescript' || kind === 'run_shell' ? (
@@ -213,6 +315,78 @@ export default function ButtonEditor() {
             multiline
           />
         ) : null}
+
+        {kind === 'media' ? (
+          <View style={styles.row}>
+            {MEDIA_ACTIONS.map((m) => (
+              <Chip
+                key={m.value}
+                label={m.label}
+                selected={mediaAction === m.value}
+                onPress={() => setMediaAction(m.value)}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {kind === 'keystroke' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              {MODIFIERS.map((m) => (
+                <Chip
+                  key={m}
+                  label={m}
+                  selected={modifiers.includes(m)}
+                  onPress={() => toggleModifier(m)}
+                />
+              ))}
+            </View>
+            <TextField
+              value={keyToken}
+              onChangeText={setKeyToken}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="key e.g. c, left, f5, space"
+            />
+          </View>
+        ) : null}
+
+        {kind === 'space' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              <Chip
+                label="Next"
+                selected={spaceDirection === 'next'}
+                onPress={() => setSpaceDirection('next')}
+              />
+              <Chip
+                label="Previous"
+                selected={spaceDirection === 'prev'}
+                onPress={() => setSpaceDirection('prev')}
+              />
+            </View>
+            <Text variant="caption" tone="secondary">
+              Needs Mission Control "move left/right a space" shortcuts enabled on the Mac.
+            </Text>
+          </View>
+        ) : null}
+
+        {kind === 'app_switch' ? (
+          <View style={styles.row}>
+            <Chip
+              label="Next"
+              selected={appSwitchDirection === 'next'}
+              onPress={() => setAppSwitchDirection('next')}
+            />
+            <Chip
+              label="Previous"
+              selected={appSwitchDirection === 'prev'}
+              onPress={() => setAppSwitchDirection('prev')}
+            />
+          </View>
+        ) : null}
+
+        {kind === 'macro' ? <MacroEditor steps={macroSteps} onChange={setMacroSteps} /> : null}
 
         <Text variant="label" tone="secondary">
           Label

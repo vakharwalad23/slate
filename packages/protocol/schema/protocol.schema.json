@@ -271,6 +271,23 @@
               "properties": {
                 "kind": {
                   "type": "string",
+                  "const": "quit_app"
+                },
+                "bundleId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "bundleId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
                   "const": "run_shortcut"
                 },
                 "name": {
@@ -317,6 +334,340 @@
               "required": [
                 "kind",
                 "script"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "media"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "playpause",
+                    "next",
+                    "prev",
+                    "volume_up",
+                    "volume_down",
+                    "mute"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "action"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "keystroke"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "modifiers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "cmd",
+                      "shift",
+                      "option",
+                      "control"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "key",
+                "modifiers"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "space"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "next",
+                    "prev"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "direction"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "app_switch"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "next",
+                    "prev"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "direction"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "macro"
+                },
+                "steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "command": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "launch_app"
+                              },
+                              "app": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "app"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "activate_app"
+                              },
+                              "bundleId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "bundleId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "quit_app"
+                              },
+                              "bundleId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "bundleId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "run_shortcut"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "input": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "run_applescript"
+                              },
+                              "script": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "script"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "run_shell"
+                              },
+                              "script": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "script"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "media"
+                              },
+                              "action": {
+                                "type": "string",
+                                "enum": [
+                                  "playpause",
+                                  "next",
+                                  "prev",
+                                  "volume_up",
+                                  "volume_down",
+                                  "mute"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "action"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "keystroke"
+                              },
+                              "key": {
+                                "type": "string"
+                              },
+                              "modifiers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "cmd",
+                                    "shift",
+                                    "option",
+                                    "control"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "key",
+                              "modifiers"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "space"
+                              },
+                              "direction": {
+                                "type": "string",
+                                "enum": [
+                                  "next",
+                                  "prev"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "direction"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "app_switch"
+                              },
+                              "direction": {
+                                "type": "string",
+                                "enum": [
+                                  "next",
+                                  "prev"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "direction"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "delayMs": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "command"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "steps"
               ],
               "additionalProperties": false
             }

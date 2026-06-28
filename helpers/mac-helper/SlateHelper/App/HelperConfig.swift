@@ -8,13 +8,17 @@ enum HelperConfig {
     static let serviceType = "_slate._tcp"
 
     // Flags are true only where the executor/responders actually wire the action; the app greys out the rest.
-    static let capabilities = Capabilities(
-        launchApps: true,
-        runShortcuts: true,
-        runShell: false,
-        keystrokes: false,
-        appList: true,
-        appIcons: true,
-        liveState: false
-    )
+    // Computed: runShell mirrors the opt-in toggle. Captured into HelperServices at startup, so flipping
+    // the toggle reflects in the app editor after the helper restarts; execution is gated live regardless.
+    static var capabilities: Capabilities {
+        Capabilities(
+            launchApps: true,
+            runShortcuts: true,
+            runShell: Settings.allowShell,
+            keystrokes: PermissionProbe.accessibilityGranted(),
+            appList: true,
+            appIcons: true,
+            liveState: false
+        )
+    }
 }

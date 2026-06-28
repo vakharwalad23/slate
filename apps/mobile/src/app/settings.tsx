@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Surface, Text } from '@/components/ui';
+import { deleteToken } from '@/lib/secure/token-store';
+import { useStore } from '@/stores/store';
 import { radii, spacing, type ThemeMode, useTheme } from '@/theme';
 
 const MODES: { mode: ThemeMode; label: string }[] = [
@@ -13,6 +15,22 @@ const MODES: { mode: ThemeMode; label: string }[] = [
 export default function SettingsScreen() {
   const { colors, mode, setMode } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const clearAll = () => {
+    Alert.alert('Clear all data?', 'Removes decks, pairing, and the saved connection.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          useStore.getState().disconnect();
+          void deleteToken();
+          useStore.getState().clearAllData();
+          router.back();
+        },
+      },
+    ]);
+  };
   return (
     <View
       style={[
@@ -47,6 +65,14 @@ export default function SettingsScreen() {
           ))}
         </View>
       </Surface>
+
+      <Surface variant="surface" radius={radii.lg} style={[styles.card, styles.cardGap]}>
+        <Text variant="heading">Data</Text>
+        <Text variant="caption" tone="secondary">
+          Forget every deck, the saved Mac, and this device's pairing.
+        </Text>
+        <Button title="Clear all data" variant="danger" onPress={clearAll} />
+      </Surface>
     </View>
   );
 }
@@ -60,5 +86,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: { padding: spacing.lg, gap: spacing.md },
+  cardGap: { marginTop: spacing.lg },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

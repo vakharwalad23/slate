@@ -10,7 +10,7 @@ import { DeckButtonCell } from '@/components/DeckButtonCell';
 import { MacroEditor } from '@/components/MacroEditor';
 import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import { defaultIcon, defaultLabel } from '@/lib/action-defaults';
-import type { DeckButton, IconRef } from '@/schemas';
+import type { DeckButton, GestureMap, GestureSlot, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
 
@@ -26,7 +26,7 @@ const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
 // Remembers the last action picked this session so a new button starts on it, not always launch_app.
 let lastKind: Kind = 'launch_app';
 
-// quit_app is no longer a standalone kind - it is offered as "Quit on double-tap" on an app button.
+// quit_app is not a primary action - it is offered only when editing a gesture slot (e.g. double-tap).
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
   { kind: 'activate_app', label: 'Activate app', needs: 'launchApps' },
@@ -51,11 +51,48 @@ const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
 
 const SWATCHES = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
 
+const GESTURE_SLOTS: { key: GestureSlot; label: string }[] = [
+  { key: 'longPress', label: 'Long press' },
+  { key: 'doubleTap', label: 'Double tap' },
+  { key: 'swipeUp', label: 'Swipe up' },
+  { key: 'swipeDown', label: 'Swipe down' },
+  { key: 'swipeLeft', label: 'Swipe left' },
+  { key: 'swipeRight', label: 'Swipe right' },
+];
+
+function asGestureSlot(value: string | undefined): GestureSlot | null {
+  switch (value) {
+    case 'longPress':
+    case 'doubleTap':
+    case 'swipeUp':
+    case 'swipeDown':
+    case 'swipeLeft':
+    case 'swipeRight':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function applySlot(
+  map: GestureMap | undefined,
+  slot: GestureSlot,
+  command: Command | null,
+): GestureMap {
+  const next: GestureMap = { ...map };
+  if (command !== null) next[slot] = command;
+  else delete next[slot];
+  return next;
+}
+
 export default function ButtonEditor() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, slot } = useLocalSearchParams<{ id: string; slot?: string }>();
   const isNew = id === 'new';
+  // When a gesture slot is set, this same editor builds the command for that gesture, not the
+  // primary tap action - the whole form is reused so any command is assignable to any gesture.
+  const gestureSlot = asGestureSlot(slot);
 
   const {
     capabilities,
@@ -83,11 +120,8 @@ export default function ButtonEditor() {
     }),
   );
 
-  const initialAction = existing?.action;
+  const initialAction = gestureSlot !== null ? existing?.gestures?.[gestureSlot] : existing?.action;
   const [kind, setKind] = useState<Kind>(initialAction?.kind ?? lastKind);
-  const [quitOnDoubleTap, setQuitOnDoubleTap] = useState(
-    existing?.gestures?.doubleTap?.kind === 'quit_app',
-  );
   const [appField, setAppField] = useState(
     initialAction?.kind === 'launch_app'
       ? initialAction.app
@@ -142,7 +176,15 @@ export default function ButtonEditor() {
   const [showPicker, setShowPicker] = useState(false);
   const [iconQuery, setIconQuery] = useState('');
 
-  const availableKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
+  const baseKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
+  // quit_app is meaningful only as a gesture target (it was folded out of the primary action picker).
+  const availableKinds =
+    gestureSlot !== null && capabilities?.launchApps === true
+      ? [
+          { kind: 'quit_app' as const, label: 'Quit app', needs: 'launchApps' as const },
+          ...baseKinds,
+        ]
+      : baseKinds;
   const isAppKind = kind === 'launch_app' || kind === 'activate_app' || kind === 'quit_app';
 
   function buildAction(): Command {
@@ -203,17 +245,20 @@ export default function ButtonEditor() {
 
   function save() {
     if (pageId === null) return;
+    if (gestureSlot !== null) {
+      editButton(pageId, id, { gestures: applySlot(existing?.gestures, gestureSlot, action) });
+      router.back();
+      return;
+    }
     lastKind = kind;
-    const gestures =
-      isAppKind && quitOnDoubleTap && appField.trim() !== ''
-        ? { doubleTap: { kind: 'quit_app' as const, bundleId: appField.trim() } }
-        : {};
+    const existingGestures = existing?.gestures;
     const base = {
       icon: resolvedIcon,
       action,
       ...(resolvedLabel !== undefined && { label: resolvedLabel }),
       ...(color !== undefined && { color }),
-      ...(isAppKind && { gestures }),
+      ...(existingGestures !== undefined &&
+        Object.keys(existingGestures).length > 0 && { gestures: existingGestures }),
     };
     if (isNew) {
       const n = buttonCount;
@@ -231,6 +276,11 @@ export default function ButtonEditor() {
 
   function remove() {
     if (pageId === null) return;
+    if (gestureSlot !== null) {
+      editButton(pageId, id, { gestures: applySlot(existing?.gestures, gestureSlot, null) });
+      router.back();
+      return;
+    }
     Alert.alert('Delete this button?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -249,7 +299,16 @@ export default function ButtonEditor() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
-        <Stack.Screen options={{ title: isNew ? 'New button' : 'Edit button' }} />
+        <Stack.Screen
+          options={{
+            title:
+              gestureSlot !== null
+                ? (GESTURE_SLOTS.find((s) => s.key === gestureSlot)?.label ?? 'Gesture')
+                : isNew
+                  ? 'New button'
+                  : 'Edit button',
+          }}
+        />
 
         <View style={styles.previewWrap}>
           <DeckButtonCell
@@ -282,11 +341,6 @@ export default function ButtonEditor() {
               onChangeText={setAppField}
               autoCapitalize="none"
               placeholder="app name or bundle id"
-            />
-            <Chip
-              label="Quit on double-tap"
-              selected={quitOnDoubleTap}
-              onPress={() => setQuitOnDoubleTap((v) => !v)}
             />
           </View>
         ) : null}
@@ -388,104 +442,144 @@ export default function ButtonEditor() {
 
         {kind === 'macro' ? <MacroEditor steps={macroSteps} onChange={setMacroSteps} /> : null}
 
-        <Text variant="label" tone="secondary">
-          Label
-        </Text>
-        <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
-
-        <Text variant="label" tone="secondary">
-          Icon
-        </Text>
-        <View style={styles.row}>
-          <Chip label="App" selected={iconSource === 'app'} onPress={() => setIconSource('app')} />
-          <Chip
-            label="Emoji"
-            selected={iconSource === 'emoji'}
-            onPress={() => setIconSource('emoji')}
-          />
-          <Chip
-            label="Glyph"
-            selected={iconSource === 'symbol'}
-            onPress={() => setIconSource('symbol')}
-          />
-        </View>
-
-        {iconSource === 'app' ? (
-          <Text variant="caption" tone="secondary">
-            Pick an app above to use its icon.
-          </Text>
-        ) : null}
-        {iconSource === 'emoji' ? (
-          <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
-        ) : null}
-        {iconSource === 'symbol' ? (
+        {gestureSlot !== null ? null : (
           <>
-            <TextField
-              value={iconQuery}
-              onChangeText={setIconQuery}
-              placeholder="Search icons"
-              autoCapitalize="none"
-            />
-            <View style={styles.iconGrid}>
-              {iconMatches.map((name) => (
+            <Text variant="label" tone="secondary">
+              Label
+            </Text>
+            <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
+
+            <Text variant="label" tone="secondary">
+              Icon
+            </Text>
+            <View style={styles.row}>
+              <Chip
+                label="App"
+                selected={iconSource === 'app'}
+                onPress={() => setIconSource('app')}
+              />
+              <Chip
+                label="Emoji"
+                selected={iconSource === 'emoji'}
+                onPress={() => setIconSource('emoji')}
+              />
+              <Chip
+                label="Glyph"
+                selected={iconSource === 'symbol'}
+                onPress={() => setIconSource('symbol')}
+              />
+            </View>
+
+            {iconSource === 'app' ? (
+              <Text variant="caption" tone="secondary">
+                Pick an app above to use its icon.
+              </Text>
+            ) : null}
+            {iconSource === 'emoji' ? (
+              <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
+            ) : null}
+            {iconSource === 'symbol' ? (
+              <>
+                <TextField
+                  value={iconQuery}
+                  onChangeText={setIconQuery}
+                  placeholder="Search icons"
+                  autoCapitalize="none"
+                />
+                <View style={styles.iconGrid}>
+                  {iconMatches.map((name) => (
+                    <PressableScale
+                      key={name}
+                      haptics={false}
+                      onPress={() => setSymbolName(name)}
+                      style={[
+                        styles.iconChoice,
+                        {
+                          borderColor: symbolName === name ? colors.accent : colors.border,
+                          backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
+                        },
+                      ]}
+                    >
+                      <Icon
+                        name={name}
+                        size={26}
+                        color={symbolName === name ? colors.accent : colors.textPrimary}
+                      />
+                    </PressableScale>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <Text variant="label" tone="secondary">
+              Color
+            </Text>
+            <View style={styles.row}>
+              <PressableScale
+                haptics={false}
+                onPress={() => setColor(undefined)}
+                style={[
+                  styles.swatchNone,
+                  { borderColor: color === undefined ? colors.accent : colors.border },
+                ]}
+              >
+                <Text variant="caption" tone="secondary">
+                  None
+                </Text>
+              </PressableScale>
+              {SWATCHES.map((c) => (
                 <PressableScale
-                  key={name}
+                  key={c}
                   haptics={false}
-                  onPress={() => setSymbolName(name)}
+                  onPress={() => setColor(c)}
                   style={[
-                    styles.iconChoice,
+                    styles.swatch,
                     {
-                      borderColor: symbolName === name ? colors.accent : colors.border,
-                      backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
+                      backgroundColor: c,
+                      borderColor: color === c ? colors.textPrimary : 'transparent',
                     },
                   ]}
-                >
-                  <Icon
-                    name={name}
-                    size={26}
-                    color={symbolName === name ? colors.accent : colors.textPrimary}
-                  />
-                </PressableScale>
+                />
               ))}
             </View>
-          </>
-        ) : null}
 
-        <Text variant="label" tone="secondary">
-          Color
-        </Text>
-        <View style={styles.row}>
-          <PressableScale
-            haptics={false}
-            onPress={() => setColor(undefined)}
-            style={[
-              styles.swatchNone,
-              { borderColor: color === undefined ? colors.accent : colors.border },
-            ]}
-          >
-            <Text variant="caption" tone="secondary">
-              None
+            <Text variant="label" tone="secondary">
+              Gestures
             </Text>
-          </PressableScale>
-          {SWATCHES.map((c) => (
-            <PressableScale
-              key={c}
-              haptics={false}
-              onPress={() => setColor(c)}
-              style={[
-                styles.swatch,
-                {
-                  backgroundColor: c,
-                  borderColor: color === c ? colors.textPrimary : 'transparent',
-                },
-              ]}
-            />
-          ))}
-        </View>
+            {isNew ? (
+              <Text variant="caption" tone="secondary">
+                Save the button first to add gestures.
+              </Text>
+            ) : (
+              GESTURE_SLOTS.map((s) => {
+                const cmd = existing?.gestures?.[s.key];
+                return (
+                  <PressableScale
+                    key={s.key}
+                    haptics={false}
+                    onPress={() => router.push(`/deck/button/${id}?slot=${s.key}`)}
+                    style={[styles.gestureRow, { borderColor: colors.border }]}
+                  >
+                    <Text variant="body">{s.label}</Text>
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                      {cmd ? (defaultLabel(cmd) ?? cmd.kind) : 'None'}
+                    </Text>
+                  </PressableScale>
+                );
+              })
+            )}
+          </>
+        )}
 
         <View style={styles.actions}>
           <Button title="Save" variant="primary" onPress={save} />
-          {isNew ? null : <Button title="Delete" variant="danger" onPress={remove} />}
+          {gestureSlot !== null ? (
+            existing?.gestures?.[gestureSlot] !== undefined ? (
+              <Button title="Remove gesture" variant="danger" onPress={remove} />
+            ) : null
+          ) : isNew ? null : (
+            <Button title="Delete" variant="danger" onPress={remove} />
+          )}
         </View>
       </ScrollView>
 
@@ -556,4 +650,14 @@ const styles = StyleSheet.create({
   },
   swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2 },
   actions: { marginTop: spacing.lg, gap: spacing.md },
+  gestureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
 });

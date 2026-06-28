@@ -133,11 +133,30 @@ struct CommandExecutor: CommandExecuting {
             return CommandOutcome(ok: false, error: "failed to synthesize keystroke")
         }
         let flags = cgFlags(modifiers)
+        let modifierCodes = modifiers.compactMap(modifierKeyCode)
+        // Press the real modifier keys, not just the event flag: WindowServer shortcuts (Mission Control
+        // Spaces, app switching) track actual modifier-key state and ignore a lone key that only sets flags.
+        for modifier in modifierCodes {
+            CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: true)?.post(tap: .cghidEventTap)
+        }
         down.flags = flags
         up.flags = flags
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
+        for modifier in modifierCodes.reversed() {
+            CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: false)?.post(tap: .cghidEventTap)
+        }
         return CommandOutcome(ok: true, error: nil)
+    }
+
+    private func modifierKeyCode(_ modifier: String) -> CGKeyCode? {
+        switch modifier {
+        case "cmd": return 0x37
+        case "shift": return 0x38
+        case "option": return 0x3A
+        case "control": return 0x3B
+        default: return nil
+        }
     }
 
     private func cgFlags(_ modifiers: [String]) -> CGEventFlags {

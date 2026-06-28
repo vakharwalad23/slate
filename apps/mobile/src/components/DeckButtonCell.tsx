@@ -1,8 +1,11 @@
+import * as Haptics from 'expo-haptics';
 import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { IconView } from '@/components/IconView';
 import { PressableScale, Text } from '@/components/ui';
 import type { DeckButton } from '@/schemas';
-import { radii, spacing, useTheme } from '@/theme';
+import { motion, radii, spacing, useTheme } from '@/theme';
 
 // The visual only, no press handling - reused by the static grid and the drag-reorder grid.
 export function DeckButtonFace({ button, size }: { button: DeckButton; size: number }) {
@@ -35,16 +38,82 @@ export function DeckButtonCell({
   size,
   onPress,
   onLongPress,
+  onDoubleTap,
 }: {
   button: DeckButton;
   size: number;
   onPress: () => void;
   onLongPress: () => void;
+  onDoubleTap?: (() => void) | undefined;
 }) {
+  // Snappy default path; only buttons with a double-tap action pay the tap-disambiguation delay.
+  if (onDoubleTap === undefined) {
+    return (
+      <PressableScale onPress={onPress} onLongPress={onLongPress}>
+        <DeckButtonFace button={button} size={size} />
+      </PressableScale>
+    );
+  }
   return (
-    <PressableScale onPress={onPress} onLongPress={onLongPress}>
-      <DeckButtonFace button={button} size={size} />
-    </PressableScale>
+    <GestureButton
+      button={button}
+      size={size}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onDoubleTap={onDoubleTap}
+    />
+  );
+}
+
+function GestureButton({
+  button,
+  size,
+  onPress,
+  onLongPress,
+  onDoubleTap,
+}: {
+  button: DeckButton;
+  size: number;
+  onPress: () => void;
+  onLongPress: () => void;
+  onDoubleTap: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const single = Gesture.Tap()
+    .maxDuration(250)
+    .runOnJS(true)
+    .onBegin(() => {
+      scale.value = withSpring(0.96, motion.spring);
+    })
+    .onFinalize(() => {
+      scale.value = withSpring(1, motion.spring);
+    })
+    .onEnd((_e, success) => {
+      if (success) {
+        void Haptics.selectionAsync();
+        onPress();
+      }
+    });
+  const double = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDuration(320)
+    .runOnJS(true)
+    .onEnd((_e, success) => {
+      if (success) onDoubleTap();
+    });
+  const long = Gesture.LongPress()
+    .minDuration(450)
+    .runOnJS(true)
+    .onStart(() => onLongPress());
+
+  return (
+    <GestureDetector gesture={Gesture.Race(long, Gesture.Exclusive(double, single))}>
+      <Animated.View style={animatedStyle}>
+        <DeckButtonFace button={button} size={size} />
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

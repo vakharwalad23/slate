@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AddCell, DeckButtonCell } from '@/components/DeckButtonCell';
+import { DeckGestures } from '@/components/DeckGestures';
 import { DeckNavBar } from '@/components/DeckNavBar';
 import { SortableGrid } from '@/components/SortableGrid';
 import { Button, connState, Icon, PressableScale, StatusPill, Text } from '@/components/ui';
@@ -44,6 +45,8 @@ export default function DeckScreen() {
     requestApps,
     sendCommand,
     reorderButton,
+    setCurrentDeck,
+    setCurrentPage,
   } = useStore(
     useShallow((s) => ({
       decks: s.decks,
@@ -54,6 +57,8 @@ export default function DeckScreen() {
       requestApps: s.requestApps,
       sendCommand: s.sendCommand,
       reorderButton: s.reorderButton,
+      setCurrentDeck: s.setCurrentDeck,
+      setCurrentPage: s.setCurrentPage,
     })),
   );
   const disconnect = useStore((s) => s.disconnect);
@@ -72,6 +77,22 @@ export default function DeckScreen() {
   useEffect(() => {
     if (!hasButtons) setEditing(false);
   }, [hasButtons]);
+
+  const pageIndex = deck && page ? deck.pages.findIndex((p) => p.id === page.id) : -1;
+  const deckIndex = deck ? decks.findIndex((d) => d.id === deck.id) : -1;
+  const step = (
+    list: { id: string }[],
+    index: number,
+    dir: 1 | -1,
+    apply: (id: string) => void,
+  ) => {
+    const next = list[index + dir];
+    if (next !== undefined) apply(next.id);
+  };
+  const onPage = (dir: 1 | -1) => {
+    if (deck) step(deck.pages, pageIndex, dir, setCurrentPage);
+  };
+  const onDeck = (dir: 1 | -1) => step(decks, deckIndex, dir, setCurrentDeck);
 
   const cols = landscape ? 6 : 4;
   const rail = landscape ? 84 : 0;
@@ -119,6 +140,16 @@ export default function DeckScreen() {
       {landscape ? (
         <View style={[styles.rail, { width: rail, borderColor: colors.border }]}>
           <View style={[styles.dot, { backgroundColor: dotColor(state, colors) }]} />
+          {deck ? (
+            <Text variant="caption" tone="secondary" numberOfLines={2} style={styles.railText}>
+              {deck.name}
+            </Text>
+          ) : null}
+          {deck && deck.pages.length > 0 ? (
+            <Text variant="caption" tone="secondary" style={styles.railText}>
+              {pageIndex + 1}/{deck.pages.length}
+            </Text>
+          ) : null}
           <View style={styles.railSpacer} />
           {controls}
         </View>
@@ -135,37 +166,48 @@ export default function DeckScreen() {
       )}
 
       <View style={styles.gridArea}>
-        <ScrollView contentContainerStyle={styles.gridScroll}>
-          {editing && page !== undefined && page.buttons.length > 0 ? (
-            <SortableGrid
-              buttons={page.buttons}
-              cols={cols}
-              size={tile}
-              gap={spacing.md}
-              onReorder={(from, to) => reorderButton(page.id, from, to)}
-            />
-          ) : (
-            <View style={[styles.grid, { width: gridWidth }]}>
-              {page?.buttons.map((button) => (
-                <DeckButtonCell
-                  key={button.id}
-                  button={button}
-                  size={tile}
-                  onPress={() => sendCommand(button.action)}
-                  onLongPress={() => router.push(`/deck/button/${button.id}`)}
-                />
-              ))}
-              {page ? (
-                <AddCell size={tile} onPress={() => router.push('/deck/button/new')} />
-              ) : null}
-            </View>
-          )}
-          {page === undefined ? (
-            <Text tone="secondary" style={styles.empty}>
-              No page
-            </Text>
-          ) : null}
-        </ScrollView>
+        <DeckGestures enabled={!editing} onPage={onPage} onDeck={onDeck}>
+          <ScrollView contentContainerStyle={styles.gridScroll}>
+            {editing && page !== undefined && page.buttons.length > 0 ? (
+              <SortableGrid
+                buttons={page.buttons}
+                cols={cols}
+                size={tile}
+                gap={spacing.md}
+                onReorder={(from, to) => reorderButton(page.id, from, to)}
+              />
+            ) : (
+              <View style={[styles.grid, { width: gridWidth }]}>
+                {page?.buttons.map((button) => {
+                  const doubleTap = button.gestures?.doubleTap;
+                  return (
+                    <DeckButtonCell
+                      key={button.id}
+                      button={button}
+                      size={tile}
+                      onPress={() => sendCommand(button.action)}
+                      onLongPress={() => router.push(`/deck/button/${button.id}`)}
+                      onDoubleTap={doubleTap ? () => sendCommand(doubleTap) : undefined}
+                    />
+                  );
+                })}
+                {page ? (
+                  <AddCell size={tile} onPress={() => router.push('/deck/button/new')} />
+                ) : null}
+              </View>
+            )}
+            {page !== undefined && page.buttons.length === 0 ? (
+              <Text tone="secondary" style={styles.empty}>
+                No buttons yet - tap + to add
+              </Text>
+            ) : null}
+            {page === undefined ? (
+              <Text tone="secondary" style={styles.empty}>
+                No page
+              </Text>
+            ) : null}
+          </ScrollView>
+        </DeckGestures>
       </View>
 
       {landscape ? null : <DeckNavBar />}
@@ -201,6 +243,7 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
   },
   railSpacer: { flex: 1 },
+  railText: { textAlign: 'center' },
   dot: { width: 10, height: 10, borderRadius: radii.pill },
   gridArea: { flex: 1 },
   gridScroll: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },

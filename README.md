@@ -14,7 +14,7 @@
 [![Stars](https://img.shields.io/github/stars/vakharwalad23/slate?logo=github)](https://github.com/vakharwalad23/slate/stargazers)
 [![Download](https://img.shields.io/github/v/release/vakharwalad23/slate?label=download&logo=github&color=5B4EE6)](https://github.com/vakharwalad23/slate/releases/latest)
 
-**[Download the latest release](https://github.com/vakharwalad23/slate/releases/latest)** - macOS helper DMG + Android APK
+**slate v0.1.0 - first release is out.** [Download (macOS DMG + Android APK)](https://github.com/vakharwalad23/slate/releases/latest) | [Star the repo](https://github.com/vakharwalad23/slate/stargazers)
 
 </div>
 

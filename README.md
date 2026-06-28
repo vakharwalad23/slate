@@ -95,9 +95,33 @@ A pnpm monorepo.
   - iOS: Xcode + the iOS Simulator.
   - Android: Android Studio / a device, plus either EAS (cloud build) or a local native build.
 
+## Install
+
+Prebuilt downloads are on the [Releases page](https://github.com/vakharwalad23/slate/releases).
+
+### macOS helper (DMG)
+
+1. Download `slate-helper-<version>.dmg`, open it, and drag **SlateHelper** onto **Applications**.
+2. The helper is self-signed (not notarized), so macOS quarantines it on first launch. Clear the flag
+   once, then open it normally:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/SlateHelper.app
+   ```
+
+3. SlateHelper runs in the menu bar (no Dock icon). To send keystrokes, switch Spaces, cycle apps, or
+   use media keys, enable it under System Settings -> Privacy and Security -> Accessibility; launching
+   apps and changing volume do not need it.
+
+### Phone app (Android APK)
+
+Download `slate-<version>.apk` from the same release, open it on your phone, and allow installing from
+your browser or files app when prompted. iOS has no prebuilt download - run it from source (below).
+
 ## Build and run from source
 
-There are no prebuilt downloads yet (see Releases below) - build it yourself.
+Prefer to build from source, or want to run on iOS? Follow the steps below; otherwise see
+[Install](#install) for prebuilt downloads.
 
 ### 1. Clone and install
 
@@ -184,13 +208,14 @@ Next up, in priority order:
   modules.
 - **Faster discovery.** A UDP broadcast fast path on Android plus Bonjour on iOS, so the Mac is found
   in well under a second before falling back to the subnet scan.
-- **Distribution and polish.** A notarized DMG with prebuilt downloads, plus first-run onboarding and
-  accessibility passes.
+- **Distribution and polish.** Notarizing the macOS DMG (it is self-signed today), plus first-run
+  onboarding and accessibility passes.
 
 ## Releases and downloads
 
-Prebuilt binaries (an Android APK and a macOS DMG) will be published with the v2 release. For now,
-build from source using the steps above.
+Prebuilt binaries - a macOS helper DMG and an Android APK - are published on the
+[Releases page](https://github.com/vakharwalad23/slate/releases); see [Install](#install) for setup.
+The DMG is self-signed (not yet notarized), so clear quarantine once after copying it to Applications.
 
 ## Contributing
 

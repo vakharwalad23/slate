@@ -11,9 +11,9 @@ Single source of truth for the message envelope, message types, the `Command` un
 the JSON Schema (`schema/protocol.schema.json`) from `z.toJSONSchema()` (`pnpm -F @slate/protocol
 gen:schema`). Consumed as raw TS source via `workspace:*` by both the app (Metro) and the helper
 (tsx) - no build step. The Swift helper mirrors these types manually (diff on every protocol change).
-`Command` ships the v1 kinds only; v2 kinds (`keystroke`/`space`/`app_switch`/`media`/`macro`) are
-added later. `MessageOf<'type'>` narrows the union so both sides build outbound messages as typed
-literals without a cast.
+`CommandSchema` is a discriminated union on `kind`; `BaseCommandSchema` excludes `macro` so macro
+steps cannot nest another macro (avoids a recursive type). `MessageOf<'type'>` narrows the union
+so both sides build outbound messages as typed literals without a cast.
 
 ## Transport - `apps/mobile/src/lib/ws`
 
@@ -43,13 +43,21 @@ auth). This is a trusted-LAN-only limitation.
 
 One curried Zustand root store composed of six slices, all wrapped in `devtools(persist(...))`.
 `connection.slice.ts` owns WebSocket lifecycle and is the message hub: inbound `hello_ack`,
-`pair_*`, `auth_*`, and `apps.*` frames are forwarded to the relevant slices; `sendCommand` is
-gated on `authPhase === 'paired'`. The slice also stores and persists the `helperName` (Bonjour
-service name) set when connecting via discovery, and passes it to `connect()` to enable
+`pair_*`, `auth_*`, `apps.*`, and `state.update` frames are forwarded to the relevant slices;
+`sendCommand` is gated on `authPhase === 'paired'`. `subscribeLiveState()` sends `subscribe.state`
+for the `foregroundApp` topic only when the helper advertises the `liveState` capability;
+`setForegroundApp(bundleId)` stores the current Mac foreground app and auto-activates the first
+deck whose `autoProfile.matchBundleId` matches. The slice also stores and persists the `helperName`
+(Bonjour service name) set when connecting via discovery, and passes it to `connect()` to enable
 network-change rediscovery. `pairing.slice.ts` runs an 8-phase `AuthPhase` state machine
 (idle / authenticating / needs_pairing / code_entry / confirming / paired / auth_error /
-pair_error). `deck.slice.ts` holds the Zod-validated deck model (CRUD, persisted, validated on
-rehydration via `merge`). `apps.slice.ts` drives `apps.list` and `apps.icon` requests and holds
+pair_error); calls `subscribeLiveState()` on both `auth_ok` and `pair_ok`. `deck.slice.ts` holds
+the Zod-validated deck model (CRUD, persisted, validated on rehydration via `merge`); actions:
+`addDeck` / `renameDeck` / `setDeckAutoProfile` / `deleteDeck` (last deck protected) /
+`addPage` / `deletePage` (last page protected) / `reorderPage` / `reorderButton`. `DeckSchema`
+carries an optional `autoProfile.matchBundleId` for live-state deck auto-switching.
+`GestureMapSchema` adds `longPress`, `doubleTap`, `swipeUp/Down/Left/Right` as optional `Command`
+fields per button. `apps.slice.ts` drives `apps.list` and `apps.icon` requests and holds
 the icon cache keyed by `bundleId + iconVersion`. `discovery.slice.ts` (gated to the discovery UI)
 runs an mDNS browse (`zeroconf.ts`, instant where the native module works) alongside a `/24` subnet
 WS-handshake scan (`subnet-scan.ts`, the reliable path since react-native-zeroconf is unavailable on
@@ -92,7 +100,16 @@ advertise `_slate._tcp`. `NWListener.Service` is avoided due to FB14321888.
 
 **Commands/** - `CommandExecutor` maps `Command` kinds to macOS actions: `launch_app` via
 `open -a` then `-b` fallback; `activate_app` via `NSRunningApplication` + frontmost-verify + retry
-loop (works around the macOS 26 Tahoe focus quirk); `run_shortcut`; `run_applescript`.
+loop (works around the macOS 26 Tahoe focus quirk); `quit_app` (idempotent `terminate`);
+`run_shortcut` (optional input piped to `shortcuts run` stdin); `run_applescript` via `osascript -e`;
+`run_shell` (off by default, gated live by `Settings.allowShell`); `media` - volume via osascript,
+`playpause`/`next`/`prev` via `NSSystemDefined` HID events (Accessibility-gated); `keystroke` -
+`CGEvent` + `KeyTokens` token-to-ANSI map; arrow keys carry `maskSecondaryFn + maskNumericPad` so
+WindowServer space shortcuts fire (Accessibility-gated); `space` - Ctrl+arrow via the `keystroke`
+path (Accessibility-gated); `app_switch` - enumerate `.regular`-policy apps sorted by bundleId,
+activate the neighbour of the frontmost - deterministic, avoids Cmd+Tab timing flakiness
+(Accessibility-gated); `macro` - sequential steps, per-step `delayMs`, stops on first failure.
+All Accessibility-gated kinds return `PermissionProbe.notGrantedMessage` when not trusted.
 `ProcessRunner` is injectable for unit tests. `AppActivator.swift` isolates the Tahoe-specific
 retry logic.
 
@@ -156,3 +173,32 @@ trusted-LAN-only design.
 side caches in the `slate-icons` MMKV namespace keyed by `bundleId + iconVersion`
 (`lib/icons/icon-cache.ts`); `hooks/useAppIcon.ts` serves from cache or fires a request.
 `iconVersion` is the app bundle mtime so stale icons are automatically evicted on app update.
+
+## Deck UI - `apps/mobile/src/components`
+
+`DeckGestures` wraps the grid in a `GestureDetector` (`Gesture.Race`) with 1-finger horizontal pan
+= page nav and 2-finger horizontal pan = deck nav. 2-finger for deck avoids fighting the long-press
+edit gesture. `navRef` is attached via `.withRef` so a button swipe can call
+`blocksExternalGesture(navRef)` to win over the page-nav pan; buttons without a swipe never attach
+this, so default decks are unaffected. Gestures are disabled in edit mode.
+
+`DeckButtonCell` has two code paths: `PressableScale` (fast, no RNGC overhead) when a button has
+neither a double-tap nor any swipe; `GestureButton` (react-native-gesture-handler) otherwise. In
+`GestureButton`: single tap (`maxDuration 250 ms`) and long-press (`minDuration 450 ms`) run
+`Simultaneous`; double-tap uses `Gesture.Exclusive(doubleTap, single)` so single tap defers to a
+second tap within 280 ms; swipe uses `Gesture.Pan` with `blocksExternalGesture`. View-mode
+long-press fires `gestures.longPress`; editing is entered via the pencil toggle, not long-press.
+
+`SortableGrid` (edit mode only): `Gesture.Pan().activateAfterLongPress(160 ms)` for drag-reorder;
+`Gesture.Tap().maxDuration(200 ms)` in `Gesture.Exclusive(pan, tap)` so a quick tap opens the
+editor before the drag arms. Reanimated shared values drive position; `useAnimatedReaction` slides
+idle items to new slots as the drag rearranges `order`.
+
+`DeckNavBar` (portrait; landscape uses a sidebar rail): deck chips + add-deck (+); page dots +
+add-page (+); long-press a chip opens rename / auto-profile / delete sheet (`setDeckAutoProfile`
+writes or clears `matchBundleId`).
+
+The button editor (`app/deck/button/[id].tsx`) is reused for gesture-slot assignment: a `?slot=`
+param selects a `GestureSlot`; the same command form builds the gesture's command and save calls
+`editButton` with an updated `gestures` map. `quit_app` appears in the slot picker only, not the
+primary action list. `GestureHandlerRootView` wraps the app root (`_layout.tsx`).

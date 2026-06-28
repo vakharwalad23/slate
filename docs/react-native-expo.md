@@ -12,6 +12,10 @@ shape changes.
 - **react-native-mmkv** for persistence (AsyncStorage fallback); auth token in **expo-secure-store**.
 - **expo-image**, **@shopify/flash-list** v2 for media/lists. **expo-splash-screen** for the
   branded splash. App icon: deck-grid (indigo) adaptive foreground/monochrome via `expo-image`.
+- **react-native-gesture-handler** + **react-native-reanimated**: gesture tree for the deck grid
+  (`DeckGestures` 1-/2-finger pan, `DeckButtonCell` tap/long-press/double-tap/swipe,
+  `SortableGrid` drag-reorder with spring animations). `GestureHandlerRootView` wraps the app
+  root (`src/app/_layout.tsx`).
 - WebSocket: React Native built-in (no library). Discovery: manual host:port first; auto-discovery
   runs an mDNS browse plus a `/24` subnet WS-handshake scan (`lib/discovery/`), since
   react-native-zeroconf is unavailable on the New Arch Android build. After repeated reconnect

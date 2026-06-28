@@ -19,9 +19,9 @@
 
 slate turns your phone into a programmable Stream Deck for a Mac. The phone shows a grid of
 buttons; tapping one sends a command over a WebSocket on your LAN, and a small native macOS
-menu-bar helper runs it on the Mac - launch an app, focus an app, run a macOS Shortcut, run
-AppleScript. Buttons render the real macOS app icons, pulled live from the Mac. Local-network only,
-with secure pairing.
+menu-bar helper runs it on the Mac - launch or focus an app, run a macOS Shortcut or AppleScript,
+send keystrokes, switch Spaces, control media, run multi-step macros, and more. Buttons render the
+real macOS app icons, pulled live from the Mac. Local-network only, with secure pairing.
 
 Built with React Native / Expo (one app for iOS and Android) and a native Swift menu-bar helper.
 
@@ -44,8 +44,16 @@ your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at an
 - **Portrait and a landscape dock mode.** Stand the phone sideways and it becomes a control surface
   with a side rail.
 - **Light and dark theme.** Follow-system or manual.
-- **Flexible buttons.** Launch an app, focus a running app, run a macOS Shortcut, or run AppleScript.
-  Three icon sources per button: the Mac app icon, an emoji, or a built-in glyph.
+- **Many actions per button.** Launch or focus an app, quit an app, run a macOS Shortcut (with input
+  piped in), run AppleScript, send keystrokes, switch Spaces, cycle apps, control media and volume,
+  run multi-step macros, or run guarded shell commands. Three icon sources per button - the Mac app
+  icon, an emoji, or a built-in glyph - plus a sensible auto icon and label per action.
+- **Per-button gestures.** Map a command to long-press, double-tap, or a swipe in any direction -
+  e.g. double-tap to quit an app, swipe to change Spaces.
+- **Pages and decks.** Multiple pages and multiple decks with a switcher; swipe to change page (two
+  fingers to change deck), and drag-to-reorder buttons in edit mode.
+- **Live profile switching.** The deck can follow the Mac's foreground app - bind an app to a deck and
+  it activates automatically when that app comes to the front.
 - **Auto-discovery and resilience.** Bonjour / mDNS plus a subnet scan find the Mac automatically
   (manual host:port always available); auto-reconnect with backoff, and it follows the Mac to a new
   IP after a network change.
@@ -111,9 +119,9 @@ open SlateHelper.xcodeproj
 ```
 
 In Xcode, set Signing to your own team, then Build and Run (Cmd-R). The app has no Dock icon -
-look for the menu-bar item. Allow the Local Network prompt on first connect. To use `activate_app`,
-enable SlateHelper under System Settings -> Privacy and Security -> Accessibility (the other actions
-do not need it).
+look for the menu-bar item. Allow the Local Network prompt on first connect. To send keystrokes,
+switch Spaces, cycle apps, use media keys, or focus an app, enable SlateHelper under System Settings
+-> Privacy and Security -> Accessibility; launching apps and changing volume do not need it.
 
 Option B - the Node MVP helper (quick, `launch_app` only):
 
@@ -145,10 +153,12 @@ menu-bar helper into the host box (faster UDP-broadcast discovery is on the way)
 
 ## Security
 
-slate is local-network only. v1 uses `ws://` plus a per-device token on a trusted network: tokens
-are not encrypted in transit, so there is no protection against MITM or replay on an untrusted LAN.
-Pairing is rate-limited with lockout, and devices are revocable from the helper. WSS with a
-self-signed certificate pinned at pairing time is planned for v2. Do not expose the helper's port to
+slate is local-network only. Today it uses `ws://` plus a per-device token on a trusted network:
+tokens are not encrypted in transit, so there is no protection against MITM or replay on an untrusted
+LAN. Pairing is rate-limited with lockout, and devices are revocable from the helper. The next
+priority is application-layer end-to-end encryption - a code-authenticated X25519 key exchange (the
+6-digit pairing code authenticates the handshake) with ChaCha20-Poly1305, so the channel is encrypted
+and MITM fails closed without any TLS certificates. Until then, do not expose the helper's port to
 untrusted networks.
 
 ## Development
@@ -165,18 +175,17 @@ pnpm -F @slate/node-helper test  # Node helper tests
 Conventional Commits; Husky runs Biome (pre-commit) and commitlint (commit-msg). All source,
 comments, and docs are ASCII-only.
 
-## Upcoming (v2)
+## Roadmap
 
-Shipping after the public release:
+Next up, in priority order:
 
-- More actions: keystrokes, switch Spaces, app switching, media keys, multi-step macros, quit app,
-  guarded shell commands, and Shortcut input piping.
-- Per-button gestures (swipe and long-press mapped to commands).
-- Multiple pages / folders, a deck switcher, and drag-to-reorder.
-- Auto profile switching - the deck follows the Mac's foreground app (live state).
-- WSS with certificate pinning at pairing.
-- A notarized DMG and prebuilt downloads (see below).
-- Faster, more reliable discovery via UDP broadcast.
+- **End-to-end encryption.** Application-layer, code-authenticated X25519 + ChaCha20-Poly1305 over the
+  existing connection - encrypts the channel and stops MITM, with no certificates and no native
+  modules.
+- **Faster discovery.** A UDP broadcast fast path on Android plus Bonjour on iOS, so the Mac is found
+  in well under a second before falling back to the subnet scan.
+- **Distribution and polish.** A notarized DMG with prebuilt downloads, plus first-run onboarding and
+  accessibility passes.
 
 ## Releases and downloads
 

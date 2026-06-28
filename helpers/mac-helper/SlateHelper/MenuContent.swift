@@ -16,6 +16,7 @@ struct MenuContent: View {
                 Text(status.serverRunning ? "Listening" : "Starting...")
             }
             .accessibilityElement(children: .combine)
+            Text("PHONE CONNECTS TO").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             Text("\(status.boundHost):\(status.port)").font(.caption).monospaced().foregroundStyle(.secondary)
             if let error = status.lastError {
                 Text(error).font(.caption2).foregroundStyle(.red).lineLimit(2)
@@ -79,7 +80,8 @@ struct MenuContent: View {
                         .help("Open System Settings to grant Accessibility")
                 }
                 .font(.caption)
-                Text("Needed to control apps and send keystrokes").font(.caption2).foregroundStyle(.secondary)
+                Text("Needed for keystrokes, media keys, and Spaces. Launching apps and volume still work without it.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
             }
 
             Divider()

@@ -2,13 +2,14 @@ import type { Capabilities, Command } from '@slate/protocol';
 import * as Crypto from 'expo-crypto';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AppPicker } from '@/components/AppPicker';
 import { DeckButtonCell } from '@/components/DeckButtonCell';
 import { MacroEditor } from '@/components/MacroEditor';
 import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
+import { defaultIcon, defaultLabel } from '@/lib/action-defaults';
 import type { DeckButton, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
@@ -22,10 +23,13 @@ type IconSource = 'app' | 'emoji' | 'symbol';
 
 const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
 
+// Remembers the last action picked this session so a new button starts on it, not always launch_app.
+let lastKind: Kind = 'launch_app';
+
+// quit_app is no longer a standalone kind - it is offered as "Quit on double-tap" on an app button.
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
   { kind: 'activate_app', label: 'Activate app', needs: 'launchApps' },
-  { kind: 'quit_app', label: 'Quit app', needs: 'launchApps' },
   { kind: 'run_shortcut', label: 'Run Shortcut', needs: 'runShortcuts' },
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
@@ -80,7 +84,10 @@ export default function ButtonEditor() {
   );
 
   const initialAction = existing?.action;
-  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? 'launch_app');
+  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? lastKind);
+  const [quitOnDoubleTap, setQuitOnDoubleTap] = useState(
+    existing?.gestures?.doubleTap?.kind === 'quit_app',
+  );
   const [appField, setAppField] = useState(
     initialAction?.kind === 'launch_app'
       ? initialAction.app
@@ -179,23 +186,34 @@ export default function ButtonEditor() {
     return { kind: 'glyph', name: label.trim() === '' ? 'app' : label.trim() };
   }
 
+  // Fall back to the action's implied icon/label so an action-only button needs no manual icon step.
+  const action = buildAction();
+  const builtIcon = buildIcon();
+  const resolvedIcon = builtIcon.kind === 'glyph' ? (defaultIcon(action) ?? builtIcon) : builtIcon;
+  const resolvedLabel = label.trim() !== '' ? label.trim() : defaultLabel(action);
+
   const previewButton: DeckButton = {
     id: 'preview',
     position: { row: 0, col: 0 },
-    icon: buildIcon(),
-    action: { kind: 'launch_app', app: '' },
-    ...(label.trim() !== '' && { label: label.trim() }),
+    icon: resolvedIcon,
+    action,
+    ...(resolvedLabel !== undefined && { label: resolvedLabel }),
     ...(color !== undefined && { color }),
   };
 
   function save() {
     if (pageId === null) return;
-    const trimmedLabel = label.trim();
+    lastKind = kind;
+    const gestures =
+      isAppKind && quitOnDoubleTap && appField.trim() !== ''
+        ? { doubleTap: { kind: 'quit_app' as const, bundleId: appField.trim() } }
+        : {};
     const base = {
-      icon: buildIcon(),
-      action: buildAction(),
-      ...(trimmedLabel !== '' && { label: trimmedLabel }),
+      icon: resolvedIcon,
+      action,
+      ...(resolvedLabel !== undefined && { label: resolvedLabel }),
       ...(color !== undefined && { color }),
+      ...(isAppKind && { gestures }),
     };
     if (isNew) {
       const n = buttonCount;
@@ -212,8 +230,18 @@ export default function ButtonEditor() {
   }
 
   function remove() {
-    if (pageId !== null && !isNew) deleteButton(pageId, id);
-    router.back();
+    if (pageId === null) return;
+    Alert.alert('Delete this button?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteButton(pageId, id);
+          router.back();
+        },
+      },
+    ]);
   }
 
   const iconMatches = ICON_CHOICES.filter((name) => name.includes(iconQuery.trim().toLowerCase()));
@@ -254,6 +282,11 @@ export default function ButtonEditor() {
               onChangeText={setAppField}
               autoCapitalize="none"
               placeholder="app name or bundle id"
+            />
+            <Chip
+              label="Quit on double-tap"
+              selected={quitOnDoubleTap}
+              onPress={() => setQuitOnDoubleTap((v) => !v)}
             />
           </View>
         ) : null}

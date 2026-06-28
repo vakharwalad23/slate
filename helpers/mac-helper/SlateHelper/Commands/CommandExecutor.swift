@@ -120,7 +120,7 @@ struct CommandExecutor: CommandExecuting {
     }
 
     @MainActor
-    private func keystroke(key: String, modifiers: [String]) -> CommandOutcome {
+    private func keystroke(key: String, modifiers: [String]) async -> CommandOutcome {
         guard PermissionProbe.accessibilityGranted() else {
             return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
         }
@@ -134,11 +134,16 @@ struct CommandExecutor: CommandExecuting {
         }
         let flags = cgFlags(modifiers)
         let modifierCodes = modifiers.compactMap(modifierKeyCode)
-        // Press the real modifier keys, not just the event flag: WindowServer shortcuts (Mission Control
-        // Spaces, app switching) track actual modifier-key state and ignore a lone key that only sets flags.
+        // Press real modifier keys with the flag set on each. WindowServer shortcuts (Mission Control
+        // Spaces) read actual modifier-key state; if the modifier-down event's flags are empty the
+        // system treats the state as inconsistent and strips the modifier from the key event.
         for modifier in modifierCodes {
-            CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: true)?.post(tap: .cghidEventTap)
+            let event = CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: true)
+            event?.flags = flags
+            event?.post(tap: .cghidEventTap)
         }
+        // Let the modifier-down register before the key, or the WindowServer shortcut can miss it.
+        if !modifierCodes.isEmpty { try? await Task.sleep(nanoseconds: 8_000_000) }
         down.flags = flags
         up.flags = flags
         down.post(tap: .cghidEventTap)

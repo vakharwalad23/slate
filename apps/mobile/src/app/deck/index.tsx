@@ -1,19 +1,36 @@
+import type { Command } from '@slate/protocol';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import type { GestureType } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
-import { AddCell, DeckButtonCell } from '@/components/DeckButtonCell';
+import { AddCell, DeckButtonCell, type SwipeHandlers } from '@/components/DeckButtonCell';
 import { DeckGestures } from '@/components/DeckGestures';
 import { DeckNavBar } from '@/components/DeckNavBar';
 import { SortableGrid } from '@/components/SortableGrid';
 import { Button, connState, Icon, PressableScale, StatusPill, Text } from '@/components/ui';
+import type { DeckButton } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
 
 const MAX_GRID = 640;
+
+function swipeHandlersFor(
+  gestures: DeckButton['gestures'],
+  send: (command: Command) => void,
+): SwipeHandlers | undefined {
+  if (gestures === undefined) return undefined;
+  const handlers: SwipeHandlers = {};
+  const { swipeUp, swipeDown, swipeLeft, swipeRight } = gestures;
+  if (swipeUp) handlers.up = () => send(swipeUp);
+  if (swipeDown) handlers.down = () => send(swipeDown);
+  if (swipeLeft) handlers.left = () => send(swipeLeft);
+  if (swipeRight) handlers.right = () => send(swipeRight);
+  return Object.keys(handlers).length > 0 ? handlers : undefined;
+}
 
 // Isolated so a command result re-renders only this, never the grid.
 function AckHaptics() {
@@ -63,6 +80,7 @@ export default function DeckScreen() {
   );
   const disconnect = useStore((s) => s.disconnect);
   const [editing, setEditing] = useState(false);
+  const pageNavRef = useRef<GestureType | undefined>(undefined);
 
   // Populate app list (and thus icon versions) once paired so grid icons resolve.
   useEffect(() => {
@@ -166,7 +184,7 @@ export default function DeckScreen() {
       )}
 
       <View style={styles.gridArea}>
-        <DeckGestures enabled={!editing} onPage={onPage} onDeck={onDeck}>
+        <DeckGestures enabled={!editing} onPage={onPage} onDeck={onDeck} navRef={pageNavRef}>
           <ScrollView contentContainerStyle={styles.gridScroll}>
             {editing && page !== undefined && page.buttons.length > 0 ? (
               <SortableGrid
@@ -175,10 +193,13 @@ export default function DeckScreen() {
                 size={tile}
                 gap={spacing.md}
                 onReorder={(from, to) => reorderButton(page.id, from, to)}
+                onEdit={(id) => router.push(`/deck/button/${id}`)}
               />
             ) : (
               <View style={[styles.grid, { width: gridWidth }]}>
                 {page?.buttons.map((button) => {
+                  // View-mode long-press fires the mapped command; editing moved to the pencil toggle.
+                  const longPress = button.gestures?.longPress;
                   const doubleTap = button.gestures?.doubleTap;
                   return (
                     <DeckButtonCell
@@ -186,8 +207,10 @@ export default function DeckScreen() {
                       button={button}
                       size={tile}
                       onPress={() => sendCommand(button.action)}
-                      onLongPress={() => router.push(`/deck/button/${button.id}`)}
+                      onLongPress={longPress ? () => sendCommand(longPress) : undefined}
                       onDoubleTap={doubleTap ? () => sendCommand(doubleTap) : undefined}
+                      onSwipe={swipeHandlersFor(button.gestures, sendCommand)}
+                      navRef={pageNavRef}
                     />
                   );
                 })}

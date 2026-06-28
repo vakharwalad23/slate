@@ -19,6 +19,7 @@ type Props = {
   size: number;
   gap: number;
   onReorder: (from: number, to: number) => void;
+  onEdit: (buttonId: string) => void;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -36,7 +37,7 @@ function moveId(order: string[], id: string, to: number): string[] {
   return next;
 }
 
-export function SortableGrid({ buttons, cols, size, gap, onReorder }: Props) {
+export function SortableGrid({ buttons, cols, size, gap, onReorder, onEdit }: Props) {
   const order = useSharedValue<string[]>(buttons.map((b) => b.id));
   // Resync ids on any structural change (add / delete / committed reorder); never fires mid-drag.
   useEffect(() => {
@@ -61,6 +62,7 @@ export function SortableGrid({ buttons, cols, size, gap, onReorder }: Props) {
           count={buttons.length}
           order={order}
           onReorder={onReorder}
+          onEdit={onEdit}
         />
       ))}
     </View>
@@ -76,9 +78,20 @@ type ItemProps = {
   count: number;
   order: SharedValue<string[]>;
   onReorder: (from: number, to: number) => void;
+  onEdit: (buttonId: string) => void;
 };
 
-function SortableItem({ button, index, cols, span, size, count, order, onReorder }: ItemProps) {
+function SortableItem({
+  button,
+  index,
+  cols,
+  span,
+  size,
+  count,
+  order,
+  onReorder,
+  onEdit,
+}: ItemProps) {
   const id = button.id;
   const tx = useSharedValue((index % cols) * span);
   const ty = useSharedValue(Math.floor(index / cols) * span);
@@ -125,6 +138,15 @@ function SortableItem({ button, index, cols, span, size, count, order, onReorder
       if (end !== startIndex.value) runOnJS(onReorder)(startIndex.value, end);
     });
 
+  // Quick tap (released before the 160ms drag arms) opens the editor; hold-and-drag still reorders.
+  const tap = Gesture.Tap()
+    .maxDuration(200)
+    .runOnJS(true)
+    .onEnd((_e, success) => {
+      if (success) onEdit(id);
+    });
+  const gesture = Gesture.Exclusive(pan, tap);
+
   const style = useAnimatedStyle(() => ({
     transform: [
       { translateX: tx.value },
@@ -135,7 +157,7 @@ function SortableItem({ button, index, cols, span, size, count, order, onReorder
   }));
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.item, { width: size, height: size }, style]}>
         <DeckButtonFace button={button} size={size} />
       </Animated.View>

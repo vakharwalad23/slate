@@ -16,7 +16,9 @@ export function DiscoveryList({
   if (found.length === 0) {
     return (
       <Text variant="caption" tone="secondary" style={styles.note}>
-        {scanning ? 'Scanning your Wi-Fi for the Mac...' : 'No helper found. Enter the host below.'}
+        {scanning
+          ? 'Scanning your Wi-Fi for the Mac...'
+          : 'No Mac found. Check the helper is running and you are on the same Wi-Fi, or enter the host below.'}
       </Text>
     );
   }

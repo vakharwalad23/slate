@@ -120,7 +120,7 @@ struct CommandExecutor: CommandExecuting {
     }
 
     @MainActor
-    private func keystroke(key: String, modifiers: [String]) async -> CommandOutcome {
+    private func keystroke(key: String, modifiers: [String]) -> CommandOutcome {
         guard PermissionProbe.accessibilityGranted() else {
             return CommandOutcome(ok: false, error: PermissionProbe.notGrantedMessage)
         }
@@ -132,35 +132,20 @@ struct CommandExecutor: CommandExecuting {
               let up = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: false) else {
             return CommandOutcome(ok: false, error: "failed to synthesize keystroke")
         }
-        let flags = cgFlags(modifiers)
-        let modifierCodes = modifiers.compactMap(modifierKeyCode)
-        // Press real modifier keys with the flag set on each. WindowServer shortcuts (Mission Control
-        // Spaces) read actual modifier-key state; if the modifier-down event's flags are empty the
-        // system treats the state as inconsistent and strips the modifier from the key event.
-        for modifier in modifierCodes {
-            let event = CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: true)
-            event?.flags = flags
-            event?.post(tap: .cghidEventTap)
-        }
-        // Let the modifier-down register before the key, or the WindowServer shortcut can miss it.
-        if !modifierCodes.isEmpty { try? await Task.sleep(nanoseconds: 8_000_000) }
+        // Hardware reports arrow keys with the Fn + numeric-pad device flags; WindowServer shortcuts
+        // (Mission Control Spaces) only fire when a synthetic arrow carries them, not the modifier alone.
+        let flags = cgFlags(modifiers).union(deviceFlags(for: key))
         down.flags = flags
         up.flags = flags
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
-        for modifier in modifierCodes.reversed() {
-            CGEvent(keyboardEventSource: source, virtualKey: modifier, keyDown: false)?.post(tap: .cghidEventTap)
-        }
         return CommandOutcome(ok: true, error: nil)
     }
 
-    private func modifierKeyCode(_ modifier: String) -> CGKeyCode? {
-        switch modifier {
-        case "cmd": return 0x37
-        case "shift": return 0x38
-        case "option": return 0x3A
-        case "control": return 0x3B
-        default: return nil
+    private func deviceFlags(for key: String) -> CGEventFlags {
+        switch key.lowercased() {
+        case "left", "right", "up", "down": return [.maskSecondaryFn, .maskNumericPad]
+        default: return []
         }
     }
 

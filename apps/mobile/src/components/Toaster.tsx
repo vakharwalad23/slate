@@ -19,6 +19,10 @@ const HIDDEN_Y = 40;
 function toastText(error?: string): string {
   if (!error) return 'Command failed';
   if (error === 'not paired') return 'Not connected to the Mac';
+  const lower = error.toLowerCase();
+  if (lower.includes('accessibility'))
+    return 'Grant Accessibility on the Mac (System Settings > Privacy & Security)';
+  if (lower.includes('shell')) return 'Turn on "Allow shell commands" in the Mac helper menu';
   return error;
 }
 

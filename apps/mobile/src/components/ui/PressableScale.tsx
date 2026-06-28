@@ -15,7 +15,7 @@ export function PressableScale({
 }: {
   children?: ReactNode;
   onPress?: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (() => void) | undefined;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   haptics?: boolean;

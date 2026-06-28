@@ -8,6 +8,7 @@ export {
   pairRequestMessage,
   pingMessage,
   setDeviceId,
+  subscribeStateMessage,
 } from './messages';
 export type { Status, Transport, TransportHandlers } from './transport';
 export { webSocketTransport } from './websocket-transport';

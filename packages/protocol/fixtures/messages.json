@@ -1,0 +1,505 @@
+{
+  "_readme": "Cross-language wire conformance vectors. Source of truth is the Zod MessageSchema; keep in sync with src/*.ts. Buckets carry per-language expectations: inbound = App->Helper (Zod accepts, Swift decodeMessage decodes to the matching case); outbound = Helper->App (Zod accepts, Swift encodeMessage of the matching Message reproduces the payload); notYetDecoded = types Zod accepts but Swift still drops to .unknown; rejected = malformed frames both Zod and Swift reject; unknownType = Zod rejects, Swift drops to .unknown; tsOnlyRejected = Zod rejects but Swift is lenient (id uuid format is enforced only at the phone boundary).",
+  "protocolVersion": 1,
+  "inbound": [
+    {
+      "name": "hello",
+      "frame": {
+        "v": 1,
+        "id": "11111111-1111-4111-8111-111111111111",
+        "reId": null,
+        "type": "hello",
+        "payload": {
+          "deviceId": "dev-1",
+          "deviceName": "phone",
+          "appVersion": "0.1.0"
+        }
+      }
+    },
+    {
+      "name": "pair_request",
+      "frame": {
+        "v": 1,
+        "id": "22222222-2222-4222-8222-222222222222",
+        "reId": null,
+        "type": "pair_request",
+        "payload": {}
+      }
+    },
+    {
+      "name": "pair_confirm",
+      "frame": {
+        "v": 1,
+        "id": "33333333-3333-4333-8333-333333333333",
+        "reId": null,
+        "type": "pair_confirm",
+        "payload": {
+          "code": "123456"
+        }
+      }
+    },
+    {
+      "name": "auth",
+      "frame": {
+        "v": 1,
+        "id": "44444444-4444-4444-8444-444444444444",
+        "reId": null,
+        "type": "auth",
+        "payload": {
+          "token": "tok-abc"
+        }
+      }
+    },
+    {
+      "name": "command.execute launch_app",
+      "frame": {
+        "v": 1,
+        "id": "55555555-5555-4555-8555-555555555555",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "launch_app",
+          "app": "Calculator"
+        }
+      }
+    },
+    {
+      "name": "command.execute activate_app",
+      "frame": {
+        "v": 1,
+        "id": "66666666-6666-4666-8666-666666666666",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "activate_app",
+          "bundleId": "com.apple.Calculator"
+        }
+      }
+    },
+    {
+      "name": "command.execute quit_app",
+      "frame": {
+        "v": 1,
+        "id": "6a6a6a6a-6a6a-46a6-86a6-6a6a6a6a6a6a",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "quit_app",
+          "bundleId": "com.apple.Calculator"
+        }
+      }
+    },
+    {
+      "name": "command.execute run_shortcut",
+      "frame": {
+        "v": 1,
+        "id": "77777777-7777-4777-8777-777777777777",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "run_shortcut",
+          "name": "My Shortcut"
+        }
+      }
+    },
+    {
+      "name": "command.execute run_shortcut with input",
+      "frame": {
+        "v": 1,
+        "id": "88888888-8888-4888-8888-888888888888",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "run_shortcut",
+          "name": "My Shortcut",
+          "input": "hello"
+        }
+      }
+    },
+    {
+      "name": "command.execute run_applescript",
+      "frame": {
+        "v": 1,
+        "id": "99999999-9999-4999-8999-999999999999",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "run_applescript",
+          "script": "return 1"
+        }
+      }
+    },
+    {
+      "name": "command.execute run_shell",
+      "frame": {
+        "v": 1,
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "run_shell",
+          "script": "echo hi"
+        }
+      }
+    },
+    {
+      "name": "command.execute media",
+      "frame": {
+        "v": 1,
+        "id": "abababab-abab-4bab-8bab-abababababab",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "media",
+          "action": "playpause"
+        }
+      }
+    },
+    {
+      "name": "command.execute keystroke",
+      "frame": {
+        "v": 1,
+        "id": "acacacac-acac-4cac-8cac-acacacacacac",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "keystroke",
+          "key": "c",
+          "modifiers": ["cmd"]
+        }
+      }
+    },
+    {
+      "name": "command.execute space",
+      "frame": {
+        "v": 1,
+        "id": "adadadad-adad-4dad-8dad-adadadadadad",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "space",
+          "direction": "next"
+        }
+      }
+    },
+    {
+      "name": "command.execute app_switch",
+      "frame": {
+        "v": 1,
+        "id": "aeaeaeae-aeae-4eae-8eae-aeaeaeaeaeae",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "app_switch",
+          "direction": "next"
+        }
+      }
+    },
+    {
+      "name": "command.execute macro",
+      "frame": {
+        "v": 1,
+        "id": "afafafaf-afaf-4faf-8faf-afafafafafaf",
+        "reId": null,
+        "type": "command.execute",
+        "payload": {
+          "kind": "macro",
+          "steps": [
+            {
+              "command": { "kind": "launch_app", "app": "Calculator" },
+              "delayMs": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "apps.list",
+      "frame": {
+        "v": 1,
+        "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reId": null,
+        "type": "apps.list",
+        "payload": {}
+      }
+    },
+    {
+      "name": "apps.icon",
+      "frame": {
+        "v": 1,
+        "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "reId": null,
+        "type": "apps.icon",
+        "payload": {
+          "bundleIds": ["com.apple.Safari"]
+        }
+      }
+    },
+    {
+      "name": "ping",
+      "frame": {
+        "v": 1,
+        "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "reId": null,
+        "type": "ping",
+        "payload": {
+          "t": 123
+        }
+      }
+    },
+    {
+      "name": "subscribe.state",
+      "frame": {
+        "v": 1,
+        "id": "5b000000-0000-4000-8000-00000000000a",
+        "reId": null,
+        "type": "subscribe.state",
+        "payload": {
+          "topics": ["foregroundApp"]
+        }
+      }
+    }
+  ],
+  "outbound": [
+    {
+      "name": "hello_ack",
+      "frame": {
+        "v": 1,
+        "id": "e1111111-1111-4111-8111-111111111111",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "hello_ack",
+        "payload": {
+          "helperName": "slate",
+          "helperVersion": "0.1.0",
+          "capabilities": {
+            "launchApps": true,
+            "runShortcuts": true,
+            "runShell": false,
+            "keystrokes": false,
+            "appList": true,
+            "appIcons": true,
+            "liveState": false
+          },
+          "paired": false
+        }
+      }
+    },
+    {
+      "name": "pair_ok",
+      "frame": {
+        "v": 1,
+        "id": "e2222222-2222-4222-8222-222222222222",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "pair_ok",
+        "payload": {
+          "token": "tok-xyz"
+        }
+      }
+    },
+    {
+      "name": "pair_error",
+      "frame": {
+        "v": 1,
+        "id": "e3333333-3333-4333-8333-333333333333",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "pair_error",
+        "payload": {
+          "reason": "bad code"
+        }
+      }
+    },
+    {
+      "name": "pair_pending",
+      "frame": {
+        "v": 1,
+        "id": "e4444444-4444-4444-8444-444444444444",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "pair_pending",
+        "payload": {
+          "expiresInMs": 60000
+        }
+      }
+    },
+    {
+      "name": "auth_ok",
+      "frame": {
+        "v": 1,
+        "id": "e5555555-5555-4555-8555-555555555555",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "auth_ok",
+        "payload": {}
+      }
+    },
+    {
+      "name": "auth_error",
+      "frame": {
+        "v": 1,
+        "id": "e6666666-6666-4666-8666-666666666666",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "auth_error",
+        "payload": {
+          "reason": "invalid token"
+        }
+      }
+    },
+    {
+      "name": "command.result",
+      "frame": {
+        "v": 1,
+        "id": "e7777777-7777-4777-8777-777777777777",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "command.result",
+        "payload": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "name": "apps.list.response",
+      "frame": {
+        "v": 1,
+        "id": "e8888888-8888-4888-8888-888888888888",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "apps.list.response",
+        "payload": {
+          "apps": [
+            {
+              "bundleId": "com.apple.Safari",
+              "name": "Safari",
+              "path": "/Applications/Safari.app",
+              "iconVersion": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "apps.icon.response",
+      "frame": {
+        "v": 1,
+        "id": "e9999999-9999-4999-8999-999999999999",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "apps.icon.response",
+        "payload": {
+          "icons": [
+            {
+              "bundleId": "com.apple.Safari",
+              "pngBase64": "iVBORw0KGgo=",
+              "iconVersion": "1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pong",
+      "frame": {
+        "v": 1,
+        "id": "eaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "pong",
+        "payload": {
+          "t": 123
+        }
+      }
+    },
+    {
+      "name": "error",
+      "frame": {
+        "v": 1,
+        "id": "ebbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "reId": "12345678-1234-4234-8234-123456789abc",
+        "type": "error",
+        "payload": {
+          "code": "internal",
+          "message": "something failed"
+        }
+      }
+    },
+    {
+      "name": "state.update",
+      "frame": {
+        "v": 1,
+        "id": "5c000000-0000-4000-8000-00000000000b",
+        "reId": null,
+        "type": "state.update",
+        "payload": {
+          "topic": "foregroundApp",
+          "value": "com.apple.Safari"
+        }
+      }
+    }
+  ],
+  "notYetDecoded": [],
+  "rejected": [
+    {
+      "name": "bad version",
+      "reason": "envelope v must equal PROTOCOL_VERSION (1)",
+      "frame": {
+        "v": 2,
+        "id": "f1000000-0000-4000-8000-000000000001",
+        "reId": null,
+        "type": "hello",
+        "payload": {
+          "deviceId": "dev-1",
+          "deviceName": "phone",
+          "appVersion": "0.1.0"
+        }
+      }
+    },
+    {
+      "name": "missing payload field",
+      "reason": "hello payload is missing required deviceId",
+      "frame": {
+        "v": 1,
+        "id": "f2000000-0000-4000-8000-000000000002",
+        "reId": null,
+        "type": "hello",
+        "payload": {
+          "deviceName": "phone",
+          "appVersion": "0.1.0"
+        }
+      }
+    },
+    {
+      "name": "wrong typed field",
+      "reason": "ping.t must be a number",
+      "frame": {
+        "v": 1,
+        "id": "f3000000-0000-4000-8000-000000000003",
+        "reId": null,
+        "type": "ping",
+        "payload": {
+          "t": "soon"
+        }
+      }
+    }
+  ],
+  "unknownType": [
+    {
+      "name": "unrecognized type",
+      "frame": {
+        "v": 1,
+        "id": "f4000000-0000-4000-8000-000000000004",
+        "reId": null,
+        "type": "totally.unknown",
+        "payload": {}
+      }
+    }
+  ],
+  "tsOnlyRejected": [
+    {
+      "name": "non-uuid id",
+      "reason": "id must be a uuid; Zod enforces it, Swift passes it through and the phone validates ids at its boundary",
+      "frame": {
+        "v": 1,
+        "id": "not-a-uuid",
+        "reId": null,
+        "type": "ping",
+        "payload": {
+          "t": 1
+        }
+      }
+    }
+  ]
+}

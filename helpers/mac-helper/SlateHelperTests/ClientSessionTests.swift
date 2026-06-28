@@ -7,7 +7,7 @@ private final class Outbox: @unchecked Sendable {
 }
 
 private struct OKRunner: ProcessRunning {
-    func run(_ launchPath: String, _ args: [String]) async throws -> String { "" }
+    func run(_ launchPath: String, _ args: [String], stdin: String?) async throws -> String { "" }
 }
 
 private func makeServices(code: String = "654321") -> HelperServices {

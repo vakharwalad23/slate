@@ -4,6 +4,10 @@ enum PermissionProbe {
     // kAXTrustedCheckOptionPrompt is a non-Sendable C global under strict concurrency; this is its value.
     private static let promptOptionKey = "AXTrustedCheckOptionPrompt"
 
+    // Shared by every command that synthesizes input (activate, keystroke, media keys, Spaces, app switch).
+    static let notGrantedMessage =
+        "accessibility not granted; enable slate helper in System Settings > Privacy and Security > Accessibility"
+
     // Explicit Grant action: registers the app in the Accessibility list and prompts.
     @discardableResult
     static func promptAccessibility() -> Bool {

@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { scanForHelpers } from '@/lib/discovery/subnet-scan';
+import { probeHelper, scanForHelpers } from '@/lib/discovery/subnet-scan';
 import { type BrowseHandle, type Found, startBrowse } from '@/lib/discovery/zeroconf';
 import type { RootState } from '@/stores/store';
 
@@ -32,6 +32,15 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
       scanGeneration += 1;
       const gen = scanGeneration;
       set({ found: [], scanning: true });
+
+      // Fast path: probe the last-known helper directly before the wide sweep starts; a single clean
+      // connection reliably answers where the saturating /24 sweep often starves it.
+      const known = get().host;
+      if (known.length > 0) {
+        void probeHelper(known, SCAN_PORT).then((name) => {
+          if (name !== null && gen === scanGeneration) addFound(name, known, SCAN_PORT);
+        });
+      }
 
       // mDNS where it works (instant); a no-op where the native module is unavailable.
       handle = startBrowse(

@@ -2,34 +2,97 @@ import type { Capabilities, Command } from '@slate/protocol';
 import * as Crypto from 'expo-crypto';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { AppPicker } from '@/components/AppPicker';
 import { DeckButtonCell } from '@/components/DeckButtonCell';
+import { MacroEditor } from '@/components/MacroEditor';
 import { Button, Chip, ICON_CHOICES, Icon, PressableScale, Text, TextField } from '@/components/ui';
-import type { DeckButton, IconRef } from '@/schemas';
+import { defaultIcon, defaultLabel } from '@/lib/action-defaults';
+import type { DeckButton, GestureMap, GestureSlot, IconRef } from '@/schemas';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
 
 type Kind = Command['kind'];
+type MediaAction = Extract<Command, { kind: 'media' }>['action'];
+type KeyModifier = Extract<Command, { kind: 'keystroke' }>['modifiers'][number];
+type SpaceDirection = Extract<Command, { kind: 'space' }>['direction'];
+type MacroStep = Extract<Command, { kind: 'macro' }>['steps'][number];
 type IconSource = 'app' | 'emoji' | 'symbol';
 
+const MODIFIERS: KeyModifier[] = ['cmd', 'shift', 'option', 'control'];
+
+// Remembers the last action picked this session so a new button starts on it, not always launch_app.
+let lastKind: Kind = 'launch_app';
+
+// quit_app is not a primary action - it is offered only when editing a gesture slot (e.g. double-tap).
 const KINDS: { kind: Kind; label: string; needs: keyof Capabilities | null }[] = [
   { kind: 'launch_app', label: 'Launch app', needs: 'launchApps' },
   { kind: 'activate_app', label: 'Activate app', needs: 'launchApps' },
   { kind: 'run_shortcut', label: 'Run Shortcut', needs: 'runShortcuts' },
   { kind: 'run_applescript', label: 'AppleScript', needs: null },
   { kind: 'run_shell', label: 'Shell', needs: 'runShell' },
+  { kind: 'media', label: 'Media', needs: null },
+  { kind: 'keystroke', label: 'Keystroke', needs: 'keystrokes' },
+  { kind: 'space', label: 'Space', needs: 'keystrokes' },
+  { kind: 'app_switch', label: 'Switch app', needs: 'keystrokes' },
+  { kind: 'macro', label: 'Macro', needs: null },
+];
+
+const MEDIA_ACTIONS: { value: MediaAction; label: string }[] = [
+  { value: 'playpause', label: 'Play/Pause' },
+  { value: 'next', label: 'Next' },
+  { value: 'prev', label: 'Previous' },
+  { value: 'volume_up', label: 'Vol +' },
+  { value: 'volume_down', label: 'Vol -' },
+  { value: 'mute', label: 'Mute' },
 ];
 
 const SWATCHES = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
 
+const GESTURE_SLOTS: { key: GestureSlot; label: string }[] = [
+  { key: 'longPress', label: 'Long press' },
+  { key: 'doubleTap', label: 'Double tap' },
+  { key: 'swipeUp', label: 'Swipe up' },
+  { key: 'swipeDown', label: 'Swipe down' },
+  { key: 'swipeLeft', label: 'Swipe left' },
+  { key: 'swipeRight', label: 'Swipe right' },
+];
+
+function asGestureSlot(value: string | undefined): GestureSlot | null {
+  switch (value) {
+    case 'longPress':
+    case 'doubleTap':
+    case 'swipeUp':
+    case 'swipeDown':
+    case 'swipeLeft':
+    case 'swipeRight':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function applySlot(
+  map: GestureMap | undefined,
+  slot: GestureSlot,
+  command: Command | null,
+): GestureMap {
+  const next: GestureMap = { ...map };
+  if (command !== null) next[slot] = command;
+  else delete next[slot];
+  return next;
+}
+
 export default function ButtonEditor() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, slot } = useLocalSearchParams<{ id: string; slot?: string }>();
   const isNew = id === 'new';
+  // When a gesture slot is set, this same editor builds the command for that gesture, not the
+  // primary tap action - the whole form is reused so any command is assignable to any gesture.
+  const gestureSlot = asGestureSlot(slot);
 
   const {
     capabilities,
@@ -57,17 +120,40 @@ export default function ButtonEditor() {
     }),
   );
 
-  const initialAction = existing?.action;
-  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? 'launch_app');
+  const initialAction = gestureSlot !== null ? existing?.gestures?.[gestureSlot] : existing?.action;
+  const [kind, setKind] = useState<Kind>(initialAction?.kind ?? lastKind);
   const [appField, setAppField] = useState(
     initialAction?.kind === 'launch_app'
       ? initialAction.app
-      : initialAction?.kind === 'activate_app'
+      : initialAction?.kind === 'activate_app' || initialAction?.kind === 'quit_app'
         ? initialAction.bundleId
         : '',
   );
   const [shortcutName, setShortcutName] = useState(
     initialAction?.kind === 'run_shortcut' ? initialAction.name : '',
+  );
+  const [shortcutInput, setShortcutInput] = useState(
+    initialAction?.kind === 'run_shortcut' ? (initialAction.input ?? '') : '',
+  );
+  const [mediaAction, setMediaAction] = useState<MediaAction>(
+    initialAction?.kind === 'media' ? initialAction.action : 'playpause',
+  );
+  const [keyToken, setKeyToken] = useState(
+    initialAction?.kind === 'keystroke' ? initialAction.key : '',
+  );
+  const [modifiers, setModifiers] = useState<KeyModifier[]>(
+    initialAction?.kind === 'keystroke' ? initialAction.modifiers : [],
+  );
+  const toggleModifier = (m: KeyModifier) =>
+    setModifiers((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
+  const [spaceDirection, setSpaceDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'space' ? initialAction.direction : 'next',
+  );
+  const [appSwitchDirection, setAppSwitchDirection] = useState<SpaceDirection>(
+    initialAction?.kind === 'app_switch' ? initialAction.direction : 'next',
+  );
+  const [macroSteps, setMacroSteps] = useState<MacroStep[]>(
+    initialAction?.kind === 'macro' ? initialAction.steps : [],
   );
   const [script, setScript] = useState(
     initialAction?.kind === 'run_applescript' || initialAction?.kind === 'run_shell'
@@ -90,8 +176,16 @@ export default function ButtonEditor() {
   const [showPicker, setShowPicker] = useState(false);
   const [iconQuery, setIconQuery] = useState('');
 
-  const availableKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
-  const isAppKind = kind === 'launch_app' || kind === 'activate_app';
+  const baseKinds = KINDS.filter((k) => k.needs === null || capabilities?.[k.needs] === true);
+  // quit_app is meaningful only as a gesture target (it was folded out of the primary action picker).
+  const availableKinds =
+    gestureSlot !== null && capabilities?.launchApps === true
+      ? [
+          { kind: 'quit_app' as const, label: 'Quit app', needs: 'launchApps' as const },
+          ...baseKinds,
+        ]
+      : baseKinds;
+  const isAppKind = kind === 'launch_app' || kind === 'activate_app' || kind === 'quit_app';
 
   function buildAction(): Command {
     switch (kind) {
@@ -99,12 +193,29 @@ export default function ButtonEditor() {
         return { kind: 'launch_app', app: appField.trim() };
       case 'activate_app':
         return { kind: 'activate_app', bundleId: appField.trim() };
-      case 'run_shortcut':
-        return { kind: 'run_shortcut', name: shortcutName.trim() };
+      case 'quit_app':
+        return { kind: 'quit_app', bundleId: appField.trim() };
+      case 'run_shortcut': {
+        const name = shortcutName.trim();
+        const input = shortcutInput.trim();
+        return input !== ''
+          ? { kind: 'run_shortcut', name, input }
+          : { kind: 'run_shortcut', name };
+      }
       case 'run_applescript':
         return { kind: 'run_applescript', script };
       case 'run_shell':
         return { kind: 'run_shell', script };
+      case 'media':
+        return { kind: 'media', action: mediaAction };
+      case 'keystroke':
+        return { kind: 'keystroke', key: keyToken.trim(), modifiers };
+      case 'space':
+        return { kind: 'space', direction: spaceDirection };
+      case 'app_switch':
+        return { kind: 'app_switch', direction: appSwitchDirection };
+      case 'macro':
+        return { kind: 'macro', steps: macroSteps };
     }
   }
 
@@ -117,23 +228,37 @@ export default function ButtonEditor() {
     return { kind: 'glyph', name: label.trim() === '' ? 'app' : label.trim() };
   }
 
+  // Fall back to the action's implied icon/label so an action-only button needs no manual icon step.
+  const action = buildAction();
+  const builtIcon = buildIcon();
+  const resolvedIcon = builtIcon.kind === 'glyph' ? (defaultIcon(action) ?? builtIcon) : builtIcon;
+  const resolvedLabel = label.trim() !== '' ? label.trim() : defaultLabel(action);
+
   const previewButton: DeckButton = {
     id: 'preview',
     position: { row: 0, col: 0 },
-    icon: buildIcon(),
-    action: { kind: 'launch_app', app: '' },
-    ...(label.trim() !== '' && { label: label.trim() }),
+    icon: resolvedIcon,
+    action,
+    ...(resolvedLabel !== undefined && { label: resolvedLabel }),
     ...(color !== undefined && { color }),
   };
 
   function save() {
     if (pageId === null) return;
-    const trimmedLabel = label.trim();
+    if (gestureSlot !== null) {
+      editButton(pageId, id, { gestures: applySlot(existing?.gestures, gestureSlot, action) });
+      router.back();
+      return;
+    }
+    lastKind = kind;
+    const existingGestures = existing?.gestures;
     const base = {
-      icon: buildIcon(),
-      action: buildAction(),
-      ...(trimmedLabel !== '' && { label: trimmedLabel }),
+      icon: resolvedIcon,
+      action,
+      ...(resolvedLabel !== undefined && { label: resolvedLabel }),
       ...(color !== undefined && { color }),
+      ...(existingGestures !== undefined &&
+        Object.keys(existingGestures).length > 0 && { gestures: existingGestures }),
     };
     if (isNew) {
       const n = buttonCount;
@@ -150,8 +275,23 @@ export default function ButtonEditor() {
   }
 
   function remove() {
-    if (pageId !== null && !isNew) deleteButton(pageId, id);
-    router.back();
+    if (pageId === null) return;
+    if (gestureSlot !== null) {
+      editButton(pageId, id, { gestures: applySlot(existing?.gestures, gestureSlot, null) });
+      router.back();
+      return;
+    }
+    Alert.alert('Delete this button?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteButton(pageId, id);
+          router.back();
+        },
+      },
+    ]);
   }
 
   const iconMatches = ICON_CHOICES.filter((name) => name.includes(iconQuery.trim().toLowerCase()));
@@ -159,7 +299,16 @@ export default function ButtonEditor() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
-        <Stack.Screen options={{ title: isNew ? 'New button' : 'Edit button' }} />
+        <Stack.Screen
+          options={{
+            title:
+              gestureSlot !== null
+                ? (GESTURE_SLOTS.find((s) => s.key === gestureSlot)?.label ?? 'Gesture')
+                : isNew
+                  ? 'New button'
+                  : 'Edit button',
+          }}
+        />
 
         <View style={styles.previewWrap}>
           <DeckButtonCell
@@ -197,11 +346,18 @@ export default function ButtonEditor() {
         ) : null}
 
         {kind === 'run_shortcut' ? (
-          <TextField
-            value={shortcutName}
-            onChangeText={setShortcutName}
-            placeholder="Shortcut name"
-          />
+          <>
+            <TextField
+              value={shortcutName}
+              onChangeText={setShortcutName}
+              placeholder="Shortcut name"
+            />
+            <TextField
+              value={shortcutInput}
+              onChangeText={setShortcutInput}
+              placeholder="Input (optional, piped to the Shortcut)"
+            />
+          </>
         ) : null}
 
         {kind === 'run_applescript' || kind === 'run_shell' ? (
@@ -214,104 +370,216 @@ export default function ButtonEditor() {
           />
         ) : null}
 
-        <Text variant="label" tone="secondary">
-          Label
-        </Text>
-        <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
-
-        <Text variant="label" tone="secondary">
-          Icon
-        </Text>
-        <View style={styles.row}>
-          <Chip label="App" selected={iconSource === 'app'} onPress={() => setIconSource('app')} />
-          <Chip
-            label="Emoji"
-            selected={iconSource === 'emoji'}
-            onPress={() => setIconSource('emoji')}
-          />
-          <Chip
-            label="Glyph"
-            selected={iconSource === 'symbol'}
-            onPress={() => setIconSource('symbol')}
-          />
-        </View>
-
-        {iconSource === 'app' ? (
-          <Text variant="caption" tone="secondary">
-            Pick an app above to use its icon.
-          </Text>
+        {kind === 'media' ? (
+          <View style={styles.row}>
+            {MEDIA_ACTIONS.map((m) => (
+              <Chip
+                key={m.value}
+                label={m.label}
+                selected={mediaAction === m.value}
+                onPress={() => setMediaAction(m.value)}
+              />
+            ))}
+          </View>
         ) : null}
-        {iconSource === 'emoji' ? (
-          <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
-        ) : null}
-        {iconSource === 'symbol' ? (
-          <>
-            <TextField
-              value={iconQuery}
-              onChangeText={setIconQuery}
-              placeholder="Search icons"
-              autoCapitalize="none"
-            />
-            <View style={styles.iconGrid}>
-              {iconMatches.map((name) => (
-                <PressableScale
-                  key={name}
-                  haptics={false}
-                  onPress={() => setSymbolName(name)}
-                  style={[
-                    styles.iconChoice,
-                    {
-                      borderColor: symbolName === name ? colors.accent : colors.border,
-                      backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
-                    },
-                  ]}
-                >
-                  <Icon
-                    name={name}
-                    size={26}
-                    color={symbolName === name ? colors.accent : colors.textPrimary}
-                  />
-                </PressableScale>
+
+        {kind === 'keystroke' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              {MODIFIERS.map((m) => (
+                <Chip
+                  key={m}
+                  label={m}
+                  selected={modifiers.includes(m)}
+                  onPress={() => toggleModifier(m)}
+                />
               ))}
             </View>
-          </>
+            <TextField
+              value={keyToken}
+              onChangeText={setKeyToken}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="key e.g. c, left, f5, space"
+            />
+          </View>
         ) : null}
 
-        <Text variant="label" tone="secondary">
-          Color
-        </Text>
-        <View style={styles.row}>
-          <PressableScale
-            haptics={false}
-            onPress={() => setColor(undefined)}
-            style={[
-              styles.swatchNone,
-              { borderColor: color === undefined ? colors.accent : colors.border },
-            ]}
-          >
+        {kind === 'space' ? (
+          <View style={styles.field}>
+            <View style={styles.row}>
+              <Chip
+                label="Next"
+                selected={spaceDirection === 'next'}
+                onPress={() => setSpaceDirection('next')}
+              />
+              <Chip
+                label="Previous"
+                selected={spaceDirection === 'prev'}
+                onPress={() => setSpaceDirection('prev')}
+              />
+            </View>
             <Text variant="caption" tone="secondary">
-              None
+              Needs Mission Control "move left/right a space" shortcuts enabled on the Mac.
             </Text>
-          </PressableScale>
-          {SWATCHES.map((c) => (
-            <PressableScale
-              key={c}
-              haptics={false}
-              onPress={() => setColor(c)}
-              style={[
-                styles.swatch,
-                {
-                  backgroundColor: c,
-                  borderColor: color === c ? colors.textPrimary : 'transparent',
-                },
-              ]}
+          </View>
+        ) : null}
+
+        {kind === 'app_switch' ? (
+          <View style={styles.row}>
+            <Chip
+              label="Next"
+              selected={appSwitchDirection === 'next'}
+              onPress={() => setAppSwitchDirection('next')}
             />
-          ))}
-        </View>
+            <Chip
+              label="Previous"
+              selected={appSwitchDirection === 'prev'}
+              onPress={() => setAppSwitchDirection('prev')}
+            />
+          </View>
+        ) : null}
+
+        {kind === 'macro' ? <MacroEditor steps={macroSteps} onChange={setMacroSteps} /> : null}
+
+        {gestureSlot !== null ? null : (
+          <>
+            <Text variant="label" tone="secondary">
+              Label
+            </Text>
+            <TextField value={label} onChangeText={setLabel} placeholder="optional label" />
+
+            <Text variant="label" tone="secondary">
+              Icon
+            </Text>
+            <View style={styles.row}>
+              <Chip
+                label="App"
+                selected={iconSource === 'app'}
+                onPress={() => setIconSource('app')}
+              />
+              <Chip
+                label="Emoji"
+                selected={iconSource === 'emoji'}
+                onPress={() => setIconSource('emoji')}
+              />
+              <Chip
+                label="Glyph"
+                selected={iconSource === 'symbol'}
+                onPress={() => setIconSource('symbol')}
+              />
+            </View>
+
+            {iconSource === 'app' ? (
+              <Text variant="caption" tone="secondary">
+                Pick an app above to use its icon.
+              </Text>
+            ) : null}
+            {iconSource === 'emoji' ? (
+              <TextField value={emoji} onChangeText={setEmoji} placeholder="emoji" />
+            ) : null}
+            {iconSource === 'symbol' ? (
+              <>
+                <TextField
+                  value={iconQuery}
+                  onChangeText={setIconQuery}
+                  placeholder="Search icons"
+                  autoCapitalize="none"
+                />
+                <View style={styles.iconGrid}>
+                  {iconMatches.map((name) => (
+                    <PressableScale
+                      key={name}
+                      haptics={false}
+                      onPress={() => setSymbolName(name)}
+                      style={[
+                        styles.iconChoice,
+                        {
+                          borderColor: symbolName === name ? colors.accent : colors.border,
+                          backgroundColor: symbolName === name ? colors.accentSoft : colors.surface,
+                        },
+                      ]}
+                    >
+                      <Icon
+                        name={name}
+                        size={26}
+                        color={symbolName === name ? colors.accent : colors.textPrimary}
+                      />
+                    </PressableScale>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <Text variant="label" tone="secondary">
+              Color
+            </Text>
+            <View style={styles.row}>
+              <PressableScale
+                haptics={false}
+                onPress={() => setColor(undefined)}
+                style={[
+                  styles.swatchNone,
+                  { borderColor: color === undefined ? colors.accent : colors.border },
+                ]}
+              >
+                <Text variant="caption" tone="secondary">
+                  None
+                </Text>
+              </PressableScale>
+              {SWATCHES.map((c) => (
+                <PressableScale
+                  key={c}
+                  haptics={false}
+                  onPress={() => setColor(c)}
+                  style={[
+                    styles.swatch,
+                    {
+                      backgroundColor: c,
+                      borderColor: color === c ? colors.textPrimary : 'transparent',
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+
+            <Text variant="label" tone="secondary">
+              Gestures
+            </Text>
+            {isNew ? (
+              <Text variant="caption" tone="secondary">
+                Save the button first to add gestures.
+              </Text>
+            ) : (
+              GESTURE_SLOTS.map((s) => {
+                const cmd = existing?.gestures?.[s.key];
+                return (
+                  <PressableScale
+                    key={s.key}
+                    haptics={false}
+                    onPress={() => router.push(`/deck/button/${id}?slot=${s.key}`)}
+                    style={[styles.gestureRow, { borderColor: colors.border }]}
+                  >
+                    <Text variant="body">{s.label}</Text>
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                      {cmd ? (defaultLabel(cmd) ?? cmd.kind) : 'None'}
+                    </Text>
+                  </PressableScale>
+                );
+              })
+            )}
+          </>
+        )}
 
         <View style={styles.actions}>
           <Button title="Save" variant="primary" onPress={save} />
-          {isNew ? null : <Button title="Delete" variant="danger" onPress={remove} />}
+          {gestureSlot !== null ? (
+            existing?.gestures?.[gestureSlot] !== undefined ? (
+              <Button title="Remove gesture" variant="danger" onPress={remove} />
+            ) : null
+          ) : isNew ? null : (
+            <Button title="Delete" variant="danger" onPress={remove} />
+          )}
         </View>
       </ScrollView>
 
@@ -382,4 +650,14 @@ const styles = StyleSheet.create({
   },
   swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2 },
   actions: { marginTop: spacing.lg, gap: spacing.md },
+  gestureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
 });

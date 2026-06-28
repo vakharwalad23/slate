@@ -14,11 +14,16 @@ export const ButtonPositionSchema = z.object({
   row: z.int().nonnegative(),
 });
 
-// Persisted now, editor UI deferred.
 export const GestureMapSchema = z.object({
   longPress: CommandSchema.optional(),
   doubleTap: CommandSchema.optional(),
+  swipeUp: CommandSchema.optional(),
+  swipeDown: CommandSchema.optional(),
+  swipeLeft: CommandSchema.optional(),
+  swipeRight: CommandSchema.optional(),
 });
+
+export type GestureSlot = keyof z.infer<typeof GestureMapSchema>;
 
 export const DeckButtonSchema = z.object({
   id: z.uuid(),
@@ -41,10 +46,13 @@ export const DeckSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   pages: z.array(PageSchema),
+  // Auto-activate this deck when the Mac's frontmost app matches (needs the helper's liveState).
+  autoProfile: z.object({ matchBundleId: z.string() }).optional(),
 });
 
 export type IconRef = z.infer<typeof IconRefSchema>;
 export type ButtonPosition = z.infer<typeof ButtonPositionSchema>;
+export type GestureMap = z.infer<typeof GestureMapSchema>;
 export type DeckButton = z.infer<typeof DeckButtonSchema>;
 export type Page = z.infer<typeof PageSchema>;
 export type Deck = z.infer<typeof DeckSchema>;

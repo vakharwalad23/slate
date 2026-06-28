@@ -2,7 +2,10 @@ import NetInfo from '@react-native-community/netinfo';
 import { MessageSchema } from '@slate/protocol';
 import { helloMessage } from '@/lib/ws';
 
-const CONCURRENCY = 24;
+// 24 saturated the Wi-Fi radio: ~250 dead hosts each holding a slot for the full timeout starved the
+// real helper's handshake, so it was missed most passes. 10 trims the air congestion; the sweep is
+// slower but reliable, and the last-known-host fast path makes the common case instant regardless.
+const CONCURRENCY = 10;
 const PROBE_TIMEOUT_MS = 800;
 // NetInfo often has not resolved the Wi-Fi IP yet right after launch, so retry before giving up
 // (a single fetch was the cause of the first-scan-finds-nothing bug).
@@ -28,8 +31,9 @@ async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> 
   return null;
 }
 
-// Resolves the helper name if host:port answers the slate handshake, else null.
-function probe(host: string, port: number): Promise<string | null> {
+// Resolves the helper name if host:port answers the slate handshake, else null. Exported for the fast
+// path: a single clean probe of a known host, before the wide sweep saturates the radio.
+export function probeHelper(host: string, port: number): Promise<string | null> {
   return new Promise((resolve) => {
     let settled = false;
     const ws = new WebSocket(`ws://${host}:${port}`);
@@ -73,7 +77,7 @@ export async function scanForHelpers(
       const host = hosts[next];
       next += 1;
       if (host === undefined) break;
-      const name = await probe(host, port);
+      const name = await probeHelper(host, port);
       if (name !== null && !isCancelled()) onFound(host, name);
     }
   };

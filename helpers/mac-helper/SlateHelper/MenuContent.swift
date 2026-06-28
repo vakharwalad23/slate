@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuContent: View {
     @Bindable var status: AppStatus
     @State private var portText = ""
+    @State private var allowShell = Settings.allowShell
     // Inline confirm, not .confirmationDialog: presentation APIs are broken inside a .window MenuBarExtra.
     @State private var confirmingRevokeId: String?
 
@@ -15,6 +16,7 @@ struct MenuContent: View {
                 Text(status.serverRunning ? "Listening" : "Starting...")
             }
             .accessibilityElement(children: .combine)
+            Text("PHONE CONNECTS TO").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             Text("\(status.boundHost):\(status.port)").font(.caption).monospaced().foregroundStyle(.secondary)
             if let error = status.lastError {
                 Text(error).font(.caption2).foregroundStyle(.red).lineLimit(2)
@@ -78,7 +80,8 @@ struct MenuContent: View {
                         .help("Open System Settings to grant Accessibility")
                 }
                 .font(.caption)
-                Text("Needed to control apps and send keystrokes").font(.caption2).foregroundStyle(.secondary)
+                Text("Needed for keystrokes, media keys, and Spaces. Launching apps and volume still work without it.")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
             }
 
             Divider()
@@ -127,6 +130,17 @@ struct MenuContent: View {
             .toggleStyle(.checkbox)
             .pointingHandCursor()
 
+            Toggle("Allow shell commands", isOn: $allowShell)
+                .font(.caption)
+                .toggleStyle(.checkbox)
+                .pointingHandCursor()
+                .onChange(of: allowShell) { _, newValue in Settings.allowShell = newValue }
+                .help("Let buttons run arbitrary shell commands")
+            if allowShell {
+                Text("Runs arbitrary commands from paired devices. Restart the helper to update the app.")
+                    .font(.caption2).foregroundStyle(.orange).lineLimit(3)
+            }
+
             Divider()
             HStack {
                 Text("LOGS").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -170,6 +184,7 @@ struct MenuContent: View {
             status.refreshAccessibility()
             status.refreshLoginItem()
             portText = String(status.port)
+            allowShell = Settings.allowShell
         }
     }
 }

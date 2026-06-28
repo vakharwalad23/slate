@@ -87,3 +87,13 @@ export function appsIconMessage(bundleIds: string[]): MessageOf<'apps.icon'> {
     payload: { bundleIds },
   };
 }
+
+export function subscribeStateMessage(topics: string[]): MessageOf<'subscribe.state'> {
+  return {
+    v: PROTOCOL_VERSION,
+    id: Crypto.randomUUID(),
+    reId: null,
+    type: 'subscribe.state',
+    payload: { topics },
+  };
+}

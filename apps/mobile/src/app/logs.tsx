@@ -41,7 +41,7 @@ export default function LogsScreen() {
 
       {newestFirst.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text tone="secondary">No logs</Text>
+          <Text tone="secondary">Errors and warnings will appear here.</Text>
         </View>
       ) : (
         <FlatList

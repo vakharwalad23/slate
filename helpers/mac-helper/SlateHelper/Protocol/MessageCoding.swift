@@ -32,6 +32,20 @@ private struct OutFrame<P: Encodable>: Encodable {
     let reId: String?
     let type: String
     let payload: P
+
+    enum CodingKeys: String, CodingKey { case v, id, reId, type, payload }
+
+    // Always emit reId (null when nil). Synthesized Codable omits nil optionals, but the envelope
+    // contract + the phone's reId schema require the key present, so an unsolicited push (reId nil,
+    // e.g. state.update / pair_pending) would otherwise fail to parse on the phone and be dropped.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(v, forKey: .v)
+        try c.encode(id, forKey: .id)
+        if let reId { try c.encode(reId, forKey: .reId) } else { try c.encodeNil(forKey: .reId) }
+        try c.encode(type, forKey: .type)
+        try c.encode(payload, forKey: .payload)
+    }
 }
 
 private struct EmptyPayload: Codable {}
@@ -41,6 +55,8 @@ private struct TokenPayload: Codable { let token: String }
 private struct ReasonPayload: Codable { let reason: String }
 private struct ExpiresInMsPayload: Codable { let expiresInMs: Double }
 private struct BundleIdsPayload: Codable { let bundleIds: [String] }
+private struct TopicsPayload: Codable { let topics: [String] }
+private struct StateUpdatePayload: Codable { let topic: String; let value: String }
 private struct ErrorPayload: Codable { let code: String; let message: String }
 
 private struct HelloPayload: Codable {
@@ -95,6 +111,9 @@ func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
         case "apps.icon":
             let f = try decoder.decode(InFrame<BundleIdsPayload>.self, from: data)
             return .success(.appsIcon(id: f.id, reId: f.reId, bundleIds: f.payload.bundleIds))
+        case "subscribe.state":
+            let f = try decoder.decode(InFrame<TopicsPayload>.self, from: data)
+            return .success(.subscribeState(id: f.id, reId: f.reId, topics: f.payload.topics))
         case "ping":
             let f = try decoder.decode(InFrame<TPayload>.self, from: data)
             return .success(.ping(id: f.id, reId: f.reId, t: f.payload.t))
@@ -125,6 +144,8 @@ func encodeMessage(_ message: Message) throws -> Data {
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "apps.list", payload: EmptyPayload()))
     case let .appsIcon(id, reId, bundleIds):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "apps.icon", payload: BundleIdsPayload(bundleIds: bundleIds)))
+    case let .subscribeState(id, reId, topics):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "subscribe.state", payload: TopicsPayload(topics: topics)))
     case let .ping(id, reId, t):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "ping", payload: TPayload(t: t)))
     case let .helloAck(id, reId, helperName, helperVersion, capabilities, paired):
@@ -146,6 +167,8 @@ func encodeMessage(_ message: Message) throws -> Data {
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "apps.list.response", payload: AppsListResponsePayload(apps: apps)))
     case let .appsIconResponse(id, reId, icons):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "apps.icon.response", payload: AppsIconResponsePayload(icons: icons)))
+    case let .stateUpdate(id, reId, topic, value):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "state.update", payload: StateUpdatePayload(topic: topic, value: value)))
     case let .pong(id, reId, t):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pong", payload: TPayload(t: t)))
     case let .error(id, reId, code, message):

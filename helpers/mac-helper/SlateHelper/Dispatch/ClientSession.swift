@@ -1,4 +1,7 @@
+import AppKit
 import Foundation
+
+let foregroundTopic = "foregroundApp"
 
 // Per-connection handler holding the auth state. Mirrors the Node helper's handleMessage routing,
 // extended with pairing + auth gating. `ping` is intentionally allowed before auth: the phone's
@@ -10,6 +13,7 @@ actor ClientSession {
     private var deviceName: String?
     private var send: (@Sendable (Message) -> Void)?
     private var pairingTask: Task<Void, Never>?
+    private var foregroundMonitor: ForegroundMonitor?
 
     init(services: HelperServices) {
         self.services = services
@@ -94,8 +98,22 @@ actor ClientSession {
                 await Task.yield()
             }
 
+        case let .subscribeState(id, _, topics):
+            guard requireAuth(id: id, send: send) else { return }
+            await updateForegroundSubscription(on: topics.contains(foregroundTopic), send: send)
+
         default:
             break
+        }
+    }
+
+    // Replaces any existing subscription so a re-subscribe (or unsubscribe via an empty topic set) is clean.
+    private func updateForegroundSubscription(on: Bool, send: @escaping @Sendable (Message) -> Void) async {
+        await foregroundMonitor?.stop()
+        foregroundMonitor = nil
+        guard on else { return }
+        foregroundMonitor = await ForegroundMonitor { bundleId in
+            send(.stateUpdate(id: newMessageId(), reId: nil, topic: foregroundTopic, value: bundleId))
         }
     }
 
@@ -143,11 +161,39 @@ actor ClientSession {
         pairingTask = nil
     }
 
-    // Called when the connection closes so a stale code does not linger in the menu.
-    func endPairing() {
+    // Called when the connection closes: drop a stale pairing code and stop any live-state subscription.
+    func teardown() async {
         cancelPairingLoop()
         services.onPairingCode(nil, nil)
+        await foregroundMonitor?.stop()
+        foregroundMonitor = nil
     }
 
     func currentDeviceId() -> String? { deviceId }
+}
+
+// Bridges NSWorkspace's main-thread activation notifications into a Sendable callback the actor can
+// forward. Pushes the current frontmost on creation so a fresh subscriber is not blank until the next
+// switch. No permission needed - foreground tracking is public, unlike keystroke synthesis.
+@MainActor
+final class ForegroundMonitor {
+    private var observer: NSObjectProtocol?
+
+    init(onChange: @escaping @Sendable (String) -> Void) {
+        observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  let bundleId = app.bundleIdentifier else { return }
+            onChange(bundleId)
+        }
+        if let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier {
+            onChange(front)
+        }
+    }
+
+    func stop() {
+        if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        observer = nil
+    }
 }

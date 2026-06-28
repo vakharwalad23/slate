@@ -78,6 +78,7 @@ final class ProtocolConformanceTests: XCTestCase {
             "command.result": .commandResult(id: "id", reId: "re", ok: true, error: nil),
             "apps.list.response": .appsListResponse(id: "id", reId: "re", apps: [AppInfo(bundleId: "b", name: "n", path: "p", iconVersion: "1")]),
             "apps.icon.response": .appsIconResponse(id: "id", reId: "re", icons: [IconEntry(bundleId: "b", pngBase64: "x", iconVersion: "1")]),
+            "state.update": .stateUpdate(id: "id", reId: "re", topic: "foregroundApp", value: "com.apple.Safari"),
             "pong": .pong(id: "id", reId: "re", t: 1),
             "error": .error(id: "id", reId: "re", code: "internal", message: "m"),
         ]

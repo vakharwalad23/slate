@@ -246,6 +246,18 @@
           "t": 123
         }
       }
+    },
+    {
+      "name": "subscribe.state",
+      "frame": {
+        "v": 1,
+        "id": "5b000000-0000-4000-8000-00000000000a",
+        "reId": null,
+        "type": "subscribe.state",
+        "payload": {
+          "topics": ["foregroundApp"]
+        }
+      }
     }
   ],
   "outbound": [
@@ -403,37 +415,22 @@
           "message": "something failed"
         }
       }
-    }
-  ],
-  "notYetDecoded": [
-    {
-      "name": "subscribe.state",
-      "frame": {
-        "v": 1,
-        "id": "5b000000-0000-4000-8000-00000000000a",
-        "reId": null,
-        "type": "subscribe.state",
-        "payload": {
-          "topics": ["foreground"]
-        }
-      }
     },
     {
       "name": "state.update",
       "frame": {
         "v": 1,
         "id": "5c000000-0000-4000-8000-00000000000b",
-        "reId": "12345678-1234-4234-8234-123456789abc",
+        "reId": null,
         "type": "state.update",
         "payload": {
-          "topic": "foreground",
-          "value": {
-            "bundleId": "com.apple.Safari"
-          }
+          "topic": "foregroundApp",
+          "value": "com.apple.Safari"
         }
       }
     }
   ],
+  "notYetDecoded": [],
   "rejected": [
     {
       "name": "bad version",

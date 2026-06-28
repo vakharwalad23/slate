@@ -143,6 +143,7 @@ enum Message: Sendable {
     case commandExecute(id: String, reId: String?, command: Command)
     case appsList(id: String, reId: String?)
     case appsIcon(id: String, reId: String?, bundleIds: [String])
+    case subscribeState(id: String, reId: String?, topics: [String])
     case ping(id: String, reId: String?, t: Double)
     // helper -> app
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
@@ -154,6 +155,8 @@ enum Message: Sendable {
     case commandResult(id: String, reId: String?, ok: Bool, error: String?)
     case appsListResponse(id: String, reId: String?, apps: [AppInfo])
     case appsIconResponse(id: String, reId: String?, icons: [IconEntry])
+    // value carries the foreground app's bundle id; widen to a JSON value if more topics ship.
+    case stateUpdate(id: String, reId: String?, topic: String, value: String)
     case pong(id: String, reId: String?, t: Double)
     case error(id: String, reId: String?, code: String, message: String)
     case unknown(type: String, id: String, reId: String?)

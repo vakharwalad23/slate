@@ -126,105 +126,105 @@ export function DeckNavBar() {
         transparent
         onRequestClose={closeSheet}
       >
-        <View style={styles.backdrop}>
+        {picking ? (
           <View
             style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.bg,
-                borderColor: colors.border,
-                marginBottom: insets.bottom,
-              },
+              styles.picker,
+              { backgroundColor: colors.bg, paddingTop: insets.top + spacing.md },
             ]}
           >
-            <Text variant="heading">Rename deck</Text>
-            <TextField
-              value={editing?.name ?? ''}
-              onChangeText={(name) => setEditing((e) => (e === null ? e : { ...e, name }))}
-              placeholder="Deck name"
-              autoFocus
-            />
-            <View style={styles.autoRow}>
-              <View style={styles.autoText}>
-                <Text variant="body">Auto-switch</Text>
-                <Text variant="caption" tone="secondary" numberOfLines={1}>
-                  {matchName ?? 'Open this deck when an app is frontmost'}
-                </Text>
-              </View>
-              {editing?.matchBundleId != null ? (
-                <Button
-                  title="Clear"
-                  variant="ghost"
-                  onPress={() =>
-                    setEditing((e) => (e === null ? e : { ...e, matchBundleId: null }))
-                  }
-                />
-              ) : null}
-              <Button
-                title={editing?.matchBundleId != null ? 'Change' : 'Choose'}
-                variant="secondary"
-                onPress={() => setPicking(true)}
+            <View style={styles.pickerHeader}>
+              <Text variant="heading">Auto-switch app</Text>
+              <Button title="Close" variant="ghost" onPress={() => setPicking(false)} />
+            </View>
+            <View style={[styles.pickerBody, { paddingBottom: insets.bottom }]}>
+              <AppPicker
+                onSelect={(app) => {
+                  setEditing((e) => (e === null ? e : { ...e, matchBundleId: app.bundleId }));
+                  setPicking(false);
+                }}
               />
             </View>
-            <View style={styles.sheetActions}>
-              {decks.length > 1 ? (
+          </View>
+        ) : (
+          <View style={styles.backdrop}>
+            <View
+              style={[
+                styles.sheet,
+                {
+                  backgroundColor: colors.bg,
+                  borderColor: colors.border,
+                  marginBottom: insets.bottom,
+                },
+              ]}
+            >
+              <Text variant="heading">Rename deck</Text>
+              <TextField
+                value={editing?.name ?? ''}
+                onChangeText={(name) => setEditing((e) => (e === null ? e : { ...e, name }))}
+                placeholder="Deck name"
+                autoFocus
+              />
+              <View style={styles.autoRow}>
+                <View style={styles.autoText}>
+                  <Text variant="body">Auto-switch</Text>
+                  <Text variant="caption" tone="secondary" numberOfLines={1}>
+                    {matchName ?? 'Open this deck when an app is frontmost'}
+                  </Text>
+                </View>
+                {editing?.matchBundleId != null ? (
+                  <Button
+                    title="Clear"
+                    variant="ghost"
+                    onPress={() =>
+                      setEditing((e) => (e === null ? e : { ...e, matchBundleId: null }))
+                    }
+                  />
+                ) : null}
                 <Button
-                  title="Delete"
-                  variant="danger"
-                  onPress={() => {
-                    const target = editing;
-                    if (target === null) return;
-                    Alert.alert('Delete this deck?', 'All its pages and buttons are removed.', [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => {
-                          deleteDeck(target.id);
-                          closeSheet();
+                  title={editing?.matchBundleId != null ? 'Change' : 'Choose'}
+                  variant="secondary"
+                  onPress={() => setPicking(true)}
+                />
+              </View>
+              <View style={styles.sheetActions}>
+                {decks.length > 1 ? (
+                  <Button
+                    title="Delete"
+                    variant="danger"
+                    onPress={() => {
+                      const target = editing;
+                      if (target === null) return;
+                      Alert.alert('Delete this deck?', 'All its pages and buttons are removed.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => {
+                            deleteDeck(target.id);
+                            closeSheet();
+                          },
                         },
-                      },
-                    ]);
-                  }}
-                />
-              ) : null}
-              <View style={styles.sheetRight}>
-                <Button title="Cancel" variant="ghost" onPress={closeSheet} />
-                <Button
-                  title="Save"
-                  onPress={() => {
-                    if (editing === null) return;
-                    if (editing.name.trim() !== '') renameDeck(editing.id, editing.name.trim());
-                    setDeckAutoProfile(editing.id, editing.matchBundleId);
-                    closeSheet();
-                  }}
-                />
+                      ]);
+                    }}
+                  />
+                ) : null}
+                <View style={styles.sheetRight}>
+                  <Button title="Cancel" variant="ghost" onPress={closeSheet} />
+                  <Button
+                    title="Save"
+                    onPress={() => {
+                      if (editing === null) return;
+                      if (editing.name.trim() !== '') renameDeck(editing.id, editing.name.trim());
+                      setDeckAutoProfile(editing.id, editing.matchBundleId);
+                      closeSheet();
+                    }}
+                  />
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </Modal>
-
-      <Modal visible={picking} animationType="slide" onRequestClose={() => setPicking(false)}>
-        <View
-          style={[
-            styles.picker,
-            { backgroundColor: colors.bg, paddingTop: insets.top + spacing.md },
-          ]}
-        >
-          <View style={styles.pickerHeader}>
-            <Text variant="heading">Auto-switch app</Text>
-            <Button title="Close" variant="ghost" onPress={() => setPicking(false)} />
-          </View>
-          <View style={[styles.pickerBody, { paddingBottom: insets.bottom }]}>
-            <AppPicker
-              onSelect={(app) => {
-                setEditing((e) => (e === null ? e : { ...e, matchBundleId: app.bundleId }));
-                setPicking(false);
-              }}
-            />
-          </View>
-        </View>
+        )}
       </Modal>
     </View>
   );

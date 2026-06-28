@@ -18,7 +18,7 @@ enum HelperConfig {
             keystrokes: PermissionProbe.accessibilityGranted(),
             appList: true,
             appIcons: true,
-            liveState: false
+            liveState: true
         )
     }
 }

@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
+import { AppPicker } from '@/components/AppPicker';
 import { Button, Chip, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import { useStore } from '@/stores/store';
 import { radii, spacing, useTheme } from '@/theme';
+
+type Editing = { id: string; name: string; matchBundleId: string | null };
 
 // ponytail: portrait only; landscape shows deck name + page position in the dock rail instead.
 export function DeckNavBar() {
@@ -12,41 +15,55 @@ export function DeckNavBar() {
   const insets = useSafeAreaInsets();
   const {
     decks,
+    apps,
     currentDeckId,
     currentPageId,
     setCurrentDeck,
     setCurrentPage,
     addDeck,
     renameDeck,
+    setDeckAutoProfile,
     deleteDeck,
     addPage,
     deletePage,
   } = useStore(
     useShallow((s) => ({
       decks: s.decks,
+      apps: s.apps,
       currentDeckId: s.currentDeckId,
       currentPageId: s.currentPageId,
       setCurrentDeck: s.setCurrentDeck,
       setCurrentPage: s.setCurrentPage,
       addDeck: s.addDeck,
       renameDeck: s.renameDeck,
+      setDeckAutoProfile: s.setDeckAutoProfile,
       deleteDeck: s.deleteDeck,
       addPage: s.addPage,
       deletePage: s.deletePage,
     })),
   );
 
-  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const deck = decks.find((d) => d.id === currentDeckId) ?? decks[0];
   if (deck === undefined) return null;
 
-  const openRename = (id: string, name: string) => setEditing({ id, name });
+  const closeSheet = () => {
+    setEditing(null);
+    setPicking(false);
+  };
+  const matchName =
+    editing?.matchBundleId === null || editing?.matchBundleId === undefined
+      ? null
+      : (apps.find((a) => a.bundleId === editing.matchBundleId)?.name ?? editing.matchBundleId);
+  const openRename = (id: string, name: string, matchBundleId: string | null) =>
+    setEditing({ id, name, matchBundleId });
   const onAddDeck = () => {
     addDeck();
     const created = useStore.getState().currentDeckId;
     const name = useStore.getState().decks.find((d) => d.id === created)?.name ?? '';
-    if (created !== null) openRename(created, name);
+    if (created !== null) openRename(created, name, null);
   };
   const confirmDeletePage = (pageId: string) => {
     if (deck.pages.length <= 1) return;
@@ -69,7 +86,7 @@ export function DeckNavBar() {
             label={d.name}
             selected={d.id === deck.id}
             onPress={() => setCurrentDeck(d.id)}
-            onLongPress={() => openRename(d.id, d.name)}
+            onLongPress={() => openRename(d.id, d.name, d.autoProfile?.matchBundleId ?? null)}
           />
         ))}
         <PressableScale
@@ -107,7 +124,7 @@ export function DeckNavBar() {
         visible={editing !== null}
         animationType="fade"
         transparent
-        onRequestClose={() => setEditing(null)}
+        onRequestClose={closeSheet}
       >
         <View style={styles.backdrop}>
           <View
@@ -127,6 +144,28 @@ export function DeckNavBar() {
               placeholder="Deck name"
               autoFocus
             />
+            <View style={styles.autoRow}>
+              <View style={styles.autoText}>
+                <Text variant="body">Auto-switch</Text>
+                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                  {matchName ?? 'Open this deck when an app is frontmost'}
+                </Text>
+              </View>
+              {editing?.matchBundleId != null ? (
+                <Button
+                  title="Clear"
+                  variant="ghost"
+                  onPress={() =>
+                    setEditing((e) => (e === null ? e : { ...e, matchBundleId: null }))
+                  }
+                />
+              ) : null}
+              <Button
+                title={editing?.matchBundleId != null ? 'Change' : 'Choose'}
+                variant="secondary"
+                onPress={() => setPicking(true)}
+              />
+            </View>
             <View style={styles.sheetActions}>
               {decks.length > 1 ? (
                 <Button
@@ -142,7 +181,7 @@ export function DeckNavBar() {
                         style: 'destructive',
                         onPress: () => {
                           deleteDeck(target.id);
-                          setEditing(null);
+                          closeSheet();
                         },
                       },
                     ]);
@@ -150,17 +189,40 @@ export function DeckNavBar() {
                 />
               ) : null}
               <View style={styles.sheetRight}>
-                <Button title="Cancel" variant="ghost" onPress={() => setEditing(null)} />
+                <Button title="Cancel" variant="ghost" onPress={closeSheet} />
                 <Button
                   title="Save"
                   onPress={() => {
-                    if (editing !== null && editing.name.trim() !== '')
-                      renameDeck(editing.id, editing.name.trim());
-                    setEditing(null);
+                    if (editing === null) return;
+                    if (editing.name.trim() !== '') renameDeck(editing.id, editing.name.trim());
+                    setDeckAutoProfile(editing.id, editing.matchBundleId);
+                    closeSheet();
                   }}
                 />
               </View>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={picking} animationType="slide" onRequestClose={() => setPicking(false)}>
+        <View
+          style={[
+            styles.picker,
+            { backgroundColor: colors.bg, paddingTop: insets.top + spacing.md },
+          ]}
+        >
+          <View style={styles.pickerHeader}>
+            <Text variant="heading">Auto-switch app</Text>
+            <Button title="Close" variant="ghost" onPress={() => setPicking(false)} />
+          </View>
+          <View style={[styles.pickerBody, { paddingBottom: insets.bottom }]}>
+            <AppPicker
+              onSelect={(app) => {
+                setEditing((e) => (e === null ? e : { ...e, matchBundleId: app.bundleId }));
+                setPicking(false);
+              }}
+            />
           </View>
         </View>
       </Modal>
@@ -196,4 +258,14 @@ const styles = StyleSheet.create({
   },
   sheetActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sheetRight: { flexDirection: 'row', gap: spacing.sm, marginLeft: 'auto' },
+  autoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  autoText: { flex: 1, gap: 2 },
+  picker: { flex: 1 },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  pickerBody: { flex: 1, paddingHorizontal: spacing.lg },
 });

@@ -1,22 +1,32 @@
 import type { Capabilities, Command } from '@slate/protocol';
 import type { StateCreator } from 'zustand';
 import type { Status } from '@/lib/ws';
-import { commandExecuteMessage, helloMessage, webSocketTransport } from '@/lib/ws';
+import {
+  commandExecuteMessage,
+  helloMessage,
+  subscribeStateMessage,
+  webSocketTransport,
+} from '@/lib/ws';
 import type { RootState } from '@/stores/store';
 
 type HelperInfo = { name: string; version: string; capabilities: Capabilities };
 type CommandResult = { ok: boolean; error?: string };
 
+const FOREGROUND_TOPIC = 'foregroundApp';
+
 export type ConnectionSlice = {
   status: Status;
   helper: HelperInfo | null;
   lastResult: CommandResult | null;
+  foregroundApp: string | null;
   host: string;
   port: number;
   helperName: string | null;
   connect: (host: string, port: number, helperName?: string) => void;
   disconnect: () => void;
   sendCommand: (command: Command) => void;
+  subscribeLiveState: () => void;
+  setForegroundApp: (bundleId: string) => void;
 };
 
 export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSlice> = (
@@ -29,7 +39,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
       set({ status });
       if (status === 'connected') webSocketTransport.send(helloMessage());
       if (status === 'disconnected') {
-        set({ helper: null });
+        set({ helper: null, foregroundApp: null });
         get().onSocketDown();
       }
     },
@@ -68,6 +78,14 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
             get().ingestIconResponse(icon.bundleId, icon.pngBase64, icon.iconVersion);
           }
           break;
+        case 'state.update':
+          if (
+            message.payload.topic === FOREGROUND_TOPIC &&
+            typeof message.payload.value === 'string'
+          ) {
+            get().setForegroundApp(message.payload.value);
+          }
+          break;
       }
     },
   });
@@ -76,6 +94,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     status: 'disconnected',
     helper: null,
     lastResult: null,
+    foregroundApp: null,
     host: '',
     port: 8765,
     helperName: null,
@@ -86,7 +105,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
     },
     disconnect: () => {
       webSocketTransport.disconnect();
-      set({ helper: null });
+      set({ helper: null, foregroundApp: null });
     },
     sendCommand: (command) => {
       // Gate on auth, not on the socket: no command runs before the helper has authed this device.
@@ -95,6 +114,17 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         return;
       }
       webSocketTransport.send(commandExecuteMessage(command));
+    },
+    subscribeLiveState: () => {
+      if (get().helper?.capabilities.liveState) {
+        webSocketTransport.send(subscribeStateMessage([FOREGROUND_TOPIC]));
+      }
+    },
+    setForegroundApp: (bundleId) => {
+      set({ foregroundApp: bundleId });
+      const { decks, currentDeckId, setCurrentDeck } = get();
+      const match = decks.find((d) => d.autoProfile?.matchBundleId === bundleId);
+      if (match !== undefined && match.id !== currentDeckId) setCurrentDeck(match.id);
     },
   };
 };

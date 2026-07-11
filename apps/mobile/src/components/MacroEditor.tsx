@@ -1,10 +1,11 @@
 import type { BaseCommand, Command } from '@slate/protocol';
 import { StyleSheet, View } from 'react-native';
+import { AppSelectField } from '@/components/AppSelectField';
 import { Button, Chip, Icon, PressableScale, Text, TextField } from '@/components/ui';
 import { radii, spacing, useTheme } from '@/theme';
 
-// ponytail: a self-contained step builder rather than reusing the main button editor - its app picker
-// also seeds the button icon, which must not happen for a macro step. Steps take a typed app/bundle id.
+// App steps reuse AppSelectField but keep onSelect writing only the step field - a macro step must
+// not seed the button icon the way the primary editor does.
 type Step = Extract<Command, { kind: 'macro' }>['steps'][number];
 type Kind = BaseCommand['kind'];
 type MediaAction = Extract<BaseCommand, { kind: 'media' }>['action'];
@@ -67,21 +68,20 @@ function CommandFields({
   switch (command.kind) {
     case 'launch_app':
       return (
-        <TextField
+        <AppSelectField
           value={command.app}
           onChangeText={(app) => onChange({ kind: 'launch_app', app })}
-          autoCapitalize="none"
-          placeholder="app name or bundle id"
+          onSelect={(app) => onChange({ kind: 'launch_app', app: app.bundleId })}
         />
       );
     case 'activate_app':
     case 'quit_app': {
       const kind = command.kind;
       return (
-        <TextField
+        <AppSelectField
           value={command.bundleId}
           onChangeText={(bundleId) => onChange({ kind, bundleId })}
-          autoCapitalize="none"
+          onSelect={(app) => onChange({ kind, bundleId: app.bundleId })}
           placeholder="bundle id"
         />
       );

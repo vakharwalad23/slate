@@ -22,7 +22,6 @@ CLAUDE.local.md
 .claude/settings.local.json
 
 # markdown sweep: only README.md, CLAUDE.md, docs/**, and .claude/** are tracked
-plan.md
 *.md
 !README.md
 !CLAUDE.md

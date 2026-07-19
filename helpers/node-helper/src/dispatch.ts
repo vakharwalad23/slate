@@ -4,7 +4,7 @@ import { PROTOCOL_VERSION } from '@slate/protocol';
 import { executeCommand, type Run } from './commands';
 
 const HELPER_NAME = 'slate helper';
-const HELPER_VERSION = '0.1.0';
+const HELPER_VERSION = '1.1.0';
 
 const CAPABILITIES: Capabilities = {
   launchApps: true,

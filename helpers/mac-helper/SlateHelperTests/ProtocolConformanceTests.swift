@@ -49,7 +49,7 @@ final class ProtocolConformanceTests: XCTestCase {
 
     private func assertShape(_ encoded: [String: Any], matches frame: [String: Any], _ name: String) {
         XCTAssertEqual(encoded["type"] as? String, frame["type"] as? String, name)
-        XCTAssertEqual(encoded["v"] as? Int, 1, name)
+        XCTAssertEqual(encoded["v"] as? Int, PROTOCOL_VERSION, name)
         // reId must always be present (null when nil): the phone's envelope schema requires the key,
         // so an omitted reId silently drops the frame (e.g. unsolicited state.update / pair_pending).
         XCTAssertNotNil(encoded["reId"], "reId key must be present (null when nil): \(name)")
@@ -71,9 +71,9 @@ final class ProtocolConformanceTests: XCTestCase {
             launchApps: true, runShortcuts: true, runShell: false,
             keystrokes: false, appList: true, appIcons: true, liveState: false
         )
-        let byType: [String: Message] = [
+        // Keyed by fixture name (not type) so both sec_hello_ack modes get their own shape check.
+        let byName: [String: Message] = [
             "hello_ack": .helloAck(id: "id", reId: "re", helperName: "slate", helperVersion: "0.1.0", capabilities: capabilities, paired: false),
-            "pair_ok": .pairOk(id: "id", reId: "re", token: "t"),
             "pair_error": .pairError(id: "id", reId: "re", reason: "bad code"),
             "pair_pending": .pairPending(id: "id", reId: "re", expiresInMs: 1000),
             "auth_ok": .authOk(id: "id", reId: "re"),
@@ -84,14 +84,18 @@ final class ProtocolConformanceTests: XCTestCase {
             "state.update": .stateUpdate(id: "id", reId: "re", topic: "foregroundApp", value: "com.apple.Safari"),
             "pong": .pong(id: "id", reId: "re", t: 1),
             "error": .error(id: "id", reId: "re", code: "internal", message: "m"),
+            "sec_hello_ack pair": .secHelloAck(id: "id", reId: "re", mode: "pair", e: Data([0x11]), s: Data([0x22]), d: nil),
+            "sec_hello_ack reconnect": .secHelloAck(id: "id", reId: "re", mode: "reconnect", e: Data([0x11]), s: nil, d: Data([0x33])),
+            "sec_confirm_ack": .secConfirmAck(id: "id", reId: "re", d: Data([0x33])),
+            "sec_error": .secError(id: "id", reId: "re", code: "bad_code", message: "m"),
+            "enc helper-to-app": .enc(id: "id", reId: "re", c: Data([0x44])),
         ]
         let outbound = try bucket(loadFixtures(), "outbound")
         for (name, frame) in outbound {
-            let type = try XCTUnwrap(frame["type"] as? String)
-            let message = try XCTUnwrap(byType[type], "no constructor for \(type)")
+            let message = try XCTUnwrap(byName[name], "no constructor for \(name)")
             assertShape(try encodedDict(message), matches: frame, name)
         }
-        XCTAssertEqual(outbound.count, byType.count, "outbound fixtures and constructors drifted")
+        XCTAssertEqual(outbound.count, byName.count, "outbound fixtures and constructors drifted")
     }
 
     func testNotYetDecodedFramesDropToUnknown() throws {

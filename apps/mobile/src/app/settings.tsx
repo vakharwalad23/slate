@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Alert, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Surface, Text } from '@/components/ui';
-import { deleteToken } from '@/lib/secure/token-store';
+import { deletePin, deleteToken } from '@/lib/secure/token-store';
 import { useStore } from '@/stores/store';
 import { radii, spacing, type ThemeMode, useTheme } from '@/theme';
 
@@ -25,6 +25,7 @@ export default function SettingsScreen() {
         onPress: () => {
           useStore.getState().disconnect();
           void deleteToken();
+          void deletePin();
           useStore.getState().clearAllData();
           router.back();
         },

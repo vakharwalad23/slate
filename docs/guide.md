@@ -31,14 +31,15 @@ Contents:
    the Mac when it appears, or use **Manual connection** and type the IP and port shown in the Mac
    menu (default port `8765`).
 3. The app moves to the pairing screen. Tap **Pair**.
-4. On the Mac menu, read the 6-digit code under **PAIRING CODE**. Type it on the phone and tap
-   **Confirm**.
-5. Done - the app jumps to the deck. The phone stores a per-device token, so it auto-connects next
-   time without a code.
+4. On the Mac menu a **SCAN TO PAIR** QR appears with a short code under it. Tap **Scan QR** on the
+   phone and point it at the QR (or type the code and tap **Confirm code**).
+5. Done - the app jumps to the deck. The phone stores a per-device token and pins the helper's
+   identity, so it auto-connects next time - encrypted, no code.
 
-The code refreshes automatically about every 2 minutes; if it expires before you finish, just read
+The code refreshes automatically about every 2 minutes; if it expires before you finish, just scan
 the new one. Five wrong codes locks pairing for 30 seconds (growing up to 5 minutes) - see
-[section 9](#9-pairing-security-and-devices).
+[section 9](#9-pairing-security-and-devices). Everything after pairing is end-to-end encrypted; see
+[security](security.md).
 
 ## 2. Permissions on the Mac
 
@@ -192,8 +193,9 @@ any time.
 
 ## 9. Pairing, security, and devices
 
-- **Pairing** uses a 6-digit code shown on the Mac (see [section 1](#1-first-connection-and-pairing)).
-  The code lasts 120 seconds and auto-regenerates; the Mac always shows a live one.
+- **Pairing** scans a QR on the Mac (or types the code under it; see
+  [section 1](#1-first-connection-and-pairing)). The code authenticates a X25519 handshake, lasts 120
+  seconds, and auto-regenerates.
 - **Lockout:** 5 wrong codes locks pairing, starting at 30 seconds and doubling up to 5 minutes.
   Spamming Pair does not reset it; a successful pair or restarting the helper does.
 - **Token:** on success the phone stores a per-device bearer token (iOS Keychain). The Mac stores
@@ -205,11 +207,12 @@ any time.
 - **Clear all data** on the phone (Settings -> Data -> Clear all data) wipes decks, token, and saved
   connection. You will need to re-pair.
 
-**Security posture (read this):** slate runs over plain `ws://` plus the bearer token on your local
-network. Traffic is **not yet end-to-end encrypted**, so on an untrusted Wi-Fi it is open to
-man-in-the-middle / replay. Keep the helper's port off untrusted networks; revoke + re-pair if you
-suspect a token was exposed. Application-layer end-to-end encryption (code-authenticated X25519 +
-ChaCha20-Poly1305) is the next roadmap item.
+**Security posture (read this):** slate runs over `ws://` on your local network, but all traffic is
+**end-to-end encrypted** - a code-authenticated X25519 handshake (the pairing code is the shared key)
+with ChaCha20-Poly1305 seals every frame, including the bearer token. Reconnecting needs no code
+(the phone pins the helper's identity), and an impersonating helper fails closed. Revoke a device
+from the Mac menu (or Clear all data on the phone) to force a re-pair. Details:
+[security](security.md).
 
 ## 10. Connection, discovery, and settings
 
@@ -236,7 +239,7 @@ Click the slate icon in the menu bar:
 - **Status:** green "Listening", orange "Starting...", or a red error (e.g. port in use).
 - **Phone connects to:** the Mac's LAN IP and port (auto-detected, updates on network change).
 - **Port:** type a value `1024`-`65535` and tap **Apply** to restart the listener on it.
-- **Pairing code:** the live 6-digit code + countdown while pairing; the clipboard icon copies it.
+- **Scan to pair:** the live QR + code + countdown while pairing; the clipboard icon copies the code.
 - **Accessibility:** an orange warning + **Grant** if it is off (see
   [section 2](#2-permissions-on-the-mac)).
 - **Open at login:** start the helper automatically when you log in.

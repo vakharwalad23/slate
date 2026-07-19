@@ -18,6 +18,7 @@
     "@slate/protocol": "workspace:*",
     "expo": "~56.0.12",
     "expo-build-properties": "~56.0.19",
+    "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.18",
     "expo-crypto": "~56.0.4",
     "expo-dev-client": "~56.0.20",
@@ -39,6 +40,7 @@
     "react-native-screens": "4.25.2",
     "react-native-worklets": "0.8.3",
     "react-native-zeroconf": "^0.14.0",
+    "slate-discovery": "workspace:*",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

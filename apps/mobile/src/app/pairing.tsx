@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
+import { QrScanner } from '@/components/QrScanner';
 import { Button, Icon, Surface, Text, TextField } from '@/components/ui';
 import { useStore } from '@/stores/store';
 import { fontSize, radii, spacing, useTheme } from '@/theme';
@@ -9,6 +10,18 @@ import { fontSize, radii, spacing, useTheme } from '@/theme';
 function formatRemaining(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+// The helper QR encodes slate://pair?h=<host>&p=<port>&c=<code>; only the code is needed once
+// connected. Parsed by hand to avoid depending on a URL polyfill under Hermes.
+function pairingCodeFromQR(data: string): string | null {
+  const match = /^slate:\/\/pair\?(.*)$/.exec(data);
+  if (match === null) return null;
+  for (const part of (match[1] ?? '').split('&')) {
+    const [key, value] = part.split('=');
+    if (key === 'c' && value !== undefined && value.length > 0) return decodeURIComponent(value);
+  }
+  return null;
 }
 
 function Screen({ children }: { children: ReactNode }) {
@@ -47,6 +60,15 @@ export default function PairingScreen() {
   const { colors } = useTheme();
   const [code, setCode] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [scanning, setScanning] = useState(false);
+
+  const onScan = (data: string) => {
+    const scanned = pairingCodeFromQR(data);
+    if (scanned === null) return;
+    setScanning(false);
+    setCode(scanned);
+    submitCode(scanned);
+  };
 
   useEffect(() => {
     if (authPhase !== 'code_entry') return;
@@ -71,31 +93,34 @@ export default function PairingScreen() {
         <Surface variant="elevated" radius={radii.xl} style={styles.card}>
           <Icon name="lock" size={36} color={colors.accent} />
           <Text variant="title" style={styles.center}>
-            Enter the code
+            Scan to pair
           </Text>
           <Text variant="body" tone="secondary" style={styles.center}>
-            Type the 6-digit code shown on {helperName}.
+            Scan the QR on {helperName}, or enter the code below it.
           </Text>
-          <TextField
-            style={styles.codeInput}
-            value={code}
-            onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="000000"
-            autoFocus
-          />
+          <Button title="Scan QR" onPress={() => setScanning(true)} style={styles.fullWidth} />
           {pairExpiresAt !== null ? (
             <Text variant="caption" tone="secondary" style={[styles.center, styles.tabular]}>
               Expires in {formatRemaining(pairExpiresAt - now)} - a new code appears automatically.
             </Text>
           ) : null}
+          <TextField
+            style={styles.codeInput}
+            value={code}
+            onChangeText={setCode}
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={40}
+            placeholder="or paste the code"
+          />
           <Button
-            title="Confirm"
+            title="Confirm code"
+            variant="secondary"
             onPress={() => submitCode(code)}
-            disabled={code.length !== 6}
+            disabled={code.trim().length < 16}
             style={styles.fullWidth}
           />
+          <QrScanner visible={scanning} onClose={() => setScanning(false)} onScan={onScan} />
         </Surface>
       </Screen>
     );
@@ -115,7 +140,7 @@ export default function PairingScreen() {
           </Text>
         ) : null}
         <Text variant="body" tone="secondary" style={styles.center}>
-          You will enter the 6-digit code shown on your Mac.
+          You will enter the pairing code shown under the QR on your Mac.
         </Text>
         <Button title="Pair" onPress={beginPairing} style={styles.fullWidth} />
       </Surface>
@@ -137,10 +162,9 @@ const styles = StyleSheet.create({
   codeInput: {
     width: '100%',
     textAlign: 'center',
-    fontSize: fontSize.xxl,
-    letterSpacing: 12,
+    fontSize: fontSize.lg,
+    letterSpacing: 2,
     paddingVertical: spacing.lg,
-    fontVariant: ['tabular-nums'],
   },
   tabular: { fontVariant: ['tabular-nums'] },
 });

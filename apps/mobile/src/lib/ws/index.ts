@@ -9,6 +9,7 @@ export {
   pingMessage,
   secConfirmMessage,
   secHelloPairMessage,
+  secHelloReconnectMessage,
   setDeviceId,
   subscribeStateMessage,
 } from './messages';

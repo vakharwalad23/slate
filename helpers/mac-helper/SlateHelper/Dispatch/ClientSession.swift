@@ -39,8 +39,10 @@ actor ClientSession {
         if case let .secure(records) = phase {
             if case let .enc(_, _, c) = message {
                 await handleEnc(c, records: records)
+            } else {
+                // Post-handshake, only enc is allowed; any plaintext frame is a protocol violation.
+                close()
             }
-            // Non-enc plaintext after the handshake is ignored here; A4 rejects and closes.
             return
         }
 
@@ -61,8 +63,12 @@ actor ClientSession {
         case let .pairRequest(id, _):
             await startPairingLoop(replyId: id)
 
-        case let .secHello(id, _, mode, e, _):
-            await handleSecHello(id: id, mode: mode, e: e, send: send)
+        case let .secHello(id, _, mode, e, d):
+            if mode == "reconnect" {
+                await handleReconnect(id: id, e: e, d: d, send: send)
+            } else {
+                await handleSecHello(id: id, mode: mode, e: e, send: send)
+            }
 
         case let .secConfirm(id, _, d):
             await handleSecConfirm(id: id, d: d, send: send)
@@ -150,6 +156,27 @@ actor ClientSession {
         services.onPairingCode(nil, nil)
         services.onDevicesChanged()
         send(.secConfirmAck(id: newMessageId(), reId: id, d: complete.confirmAck))
+        phase = .secure(records: records)
+    }
+
+    // Codeless reconnect: verify the phone encrypted to our static, then go secure. authed stays false
+    // until the token arrives inside the channel (handled in handleEnc).
+    private func handleReconnect(id: String, e: Data, d: Data?, send: @escaping @Sendable (Message) -> Void) async {
+        guard let d else {
+            send(.secError(id: newMessageId(), reId: id, code: "bad_handshake", message: "missing proof"))
+            return
+        }
+        let ephemeral = CryptoPrimitives.generateKeyPair()
+        let responder = ReconnectResponder(
+            ephemeral: KeyPair(secretKey: ephemeral.secretKey, publicKey: ephemeral.publicKey),
+            staticKey: services.identity
+        )
+        guard let ack = try? responder.respond(helloE: e, helloD: d),
+              let records = try? RecordLayer(sendKey: ack.keys.sendKey, recvKey: ack.keys.recvKey) else {
+            send(.secError(id: newMessageId(), reId: id, code: "bad_handshake", message: "identity mismatch"))
+            return
+        }
+        send(.secHelloAck(id: newMessageId(), reId: id, mode: "reconnect", e: ack.e, s: nil, d: ack.d))
         phase = .secure(records: records)
     }
 

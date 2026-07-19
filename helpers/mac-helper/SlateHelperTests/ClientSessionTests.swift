@@ -16,6 +16,8 @@ private let sessionPairingSecret = Data([UInt8](repeating: 7, count: 15))
 
 private struct HandshakeStalled: Error { let step: String }
 
+private final class Flag: @unchecked Sendable { var value = false }
+
 private func makeServices() -> HelperServices {
     let tempDir = FileManager.default.temporaryDirectory.appending(path: "slate-test-\(UUID().uuidString)")
     return HelperServices(
@@ -141,6 +143,48 @@ final class ClientSessionTests: XCTestCase {
             return XCTFail("expected sec_error")
         }
         XCTAssertEqual(code, "bad_code")
+    }
+
+    func testReconnectWithTokenAuthenticatesInsideChannel() async throws {
+        let services = makeServices()
+        // Pair first so the device is registered and we hold a valid token.
+        let paired = try await pairThroughSession(ClientSession(services: services), Outbox())
+
+        // A fresh connection reconnects using the pinned helper static, then authenticates in-channel.
+        let session = ClientSession(services: services)
+        let outbox = Outbox()
+        func handle(_ m: Message) async { await session.handle(m, send: { outbox.add($0) }, close: {}) }
+        await handle(.hello(id: "h", reId: nil, deviceId: "dev1", deviceName: "phone", appVersion: "1"))
+        let ephemeral = CryptoPrimitives.generateKeyPair()
+        let initiator = try ReconnectInitiator(
+            ephemeral: KeyPair(secretKey: ephemeral.secretKey, publicKey: ephemeral.publicKey),
+            helperStaticPub: services.identity.publicKey
+        )
+        let hello = try initiator.hello()
+        await handle(.secHello(id: "sh", reId: nil, mode: "reconnect", e: hello.e, d: hello.d))
+        guard case let .secHelloAck(_, _, _, ackE, _, ackDOptional)? = outbox.last({ if case .secHelloAck = $0 { return true }; return false }),
+              let ackD = ackDOptional else {
+            return XCTFail("expected reconnect sec_hello_ack")
+        }
+        let keys = try initiator.finish(ackE: ackE, ackD: ackD)
+        let records = try RecordLayer(sendKey: keys.sendKey, recvKey: keys.recvKey)
+        let authFrame = try encodeMessage(.auth(id: "a", reId: nil, token: paired.token))
+        await handle(.enc(id: "e", reId: nil, c: try records.seal(authFrame)))
+        guard case let .enc(_, _, replyC)? = outbox.last({ if case .enc = $0 { return true }; return false }) else {
+            return XCTFail("expected enc reply")
+        }
+        XCTAssertTrue(String(decoding: try records.open(replyC), as: UTF8.self).contains("\"type\":\"auth_ok\""))
+    }
+
+    func testPlaintextAfterHandshakeCloses() async throws {
+        let services = makeServices()
+        let session = ClientSession(services: services)
+        let outbox = Outbox()
+        _ = try await pairThroughSession(session, outbox)
+        let closed = Flag()
+        // A plaintext frame after the handshake is a protocol violation.
+        await session.handle(.ping(id: "p", reId: nil, t: 1), send: { outbox.add($0) }, close: { closed.value = true })
+        XCTAssertTrue(closed.value)
     }
 
     func testHelloDecodesFromWireJSON() {

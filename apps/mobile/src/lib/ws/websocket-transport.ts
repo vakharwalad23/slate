@@ -3,7 +3,7 @@ import type { Message } from '@slate/protocol';
 import { MessageSchema } from '@slate/protocol';
 import { type RediscoveryHandle, startRediscovery } from '@/lib/discovery/rediscovery';
 import { pingMessage } from './messages';
-import { createPairChannel, type SecureChannel } from './secure-channel';
+import { createPairChannel, createReconnectChannel, type SecureChannel } from './secure-channel';
 import type { SecureStartOptions, Status, Transport, TransportHandlers } from './transport';
 
 const HEARTBEAT_MS = 5000;
@@ -231,12 +231,10 @@ function send(message: Message): void {
 }
 
 function startSecure(options: SecureStartOptions): void {
-  if (options.mode !== 'pair') {
-    // The codeless reconnect handshake lands in the next phase.
-    handlers?.onSecureError?.('reconnect_unavailable');
-    return;
-  }
-  secureChannel = createPairChannel(options.secret);
+  secureChannel =
+    options.mode === 'pair'
+      ? createPairChannel(options.secret)
+      : createReconnectChannel(options.helperStaticPub);
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(secureChannel.initialFrame()));
   }

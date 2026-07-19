@@ -1,14 +1,16 @@
 import type { MessageOf } from '@slate/protocol';
-import { fromBase64Url, toBase64 } from '@slate/protocol/crypto';
+import { fromBase64, fromBase64Url, toBase64 } from '@slate/protocol/crypto';
 import type { StateCreator } from 'zustand';
 import {
+  cachedPin,
+  cachedToken,
   deleteToken,
   hydratePin,
   hydrateToken,
   writePin,
   writeToken,
 } from '@/lib/secure/token-store';
-import { pairRequestMessage, type SecureResult, webSocketTransport } from '@/lib/ws';
+import { authMessage, pairRequestMessage, type SecureResult, webSocketTransport } from '@/lib/ws';
 import type { RootState } from '@/stores/store';
 
 export type AuthPhase =
@@ -53,10 +55,17 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
     set({ hasStoredToken: token !== null, bootstrapped: true });
   },
 
-  // Encrypted reconnect (using the stored token + pin) lands in the next phase; for now every
-  // connection pairs afresh.
-  onHelloAck: () => {
-    set({ authPhase: 'needs_pairing', pairFailureReason: null });
+  // Paired devices reconnect over the encrypted channel using the pinned helper key; a fresh device
+  // (or one missing the pin) pairs from scratch.
+  onHelloAck: (paired) => {
+    const token = cachedToken();
+    const pin = cachedPin();
+    if (paired && token !== null && pin !== null) {
+      webSocketTransport.startSecure({ mode: 'reconnect', helperStaticPub: fromBase64(pin) });
+      set({ authPhase: 'authenticating', pairFailureReason: null });
+    } else {
+      set({ authPhase: 'needs_pairing', pairFailureReason: null });
+    }
   },
 
   beginPairing: () => {
@@ -104,8 +113,18 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
     }
   },
 
-  // The handshake completed: persist the token + pinned helper key and go paired.
+  // Pairing: persist the token + pinned helper key and go paired. Reconnect: authenticate the stored
+  // token inside the now-encrypted channel and wait for auth_ok.
   onSecure: (result) => {
+    if (result.mode === 'reconnect') {
+      const token = cachedToken();
+      if (token === null) {
+        set({ authPhase: 'needs_pairing' });
+        return;
+      }
+      webSocketTransport.send(authMessage(token));
+      return;
+    }
     if (result.token === undefined || result.helperStaticPub === undefined) return;
     void writeToken(result.token);
     void writePin(toBase64(result.helperStaticPub));
@@ -119,6 +138,17 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
   },
 
   onSecureError: (code) => {
+    if (code === 'bad_handshake') {
+      // The helper's identity key no longer matches the pin: keep the token/pin (only a successful
+      // re-pair overwrites them) but prompt the user to pair again.
+      get().logWarn('helper identity changed - pair again');
+      set({
+        authPhase: 'auth_error',
+        pairFailureReason: 'helper identity changed - pair again',
+        pairExpiresAt: null,
+      });
+      return;
+    }
     const reason =
       code === 'bad_code'
         ? 'wrong code'

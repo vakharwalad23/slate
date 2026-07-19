@@ -14,7 +14,12 @@ import {
   utf8Encode,
 } from './crypto/bytes';
 import { SecureChannelError } from './crypto/errors';
-import { createPairInitiator, createPairResponder } from './crypto/handshake';
+import {
+  createPairInitiator,
+  createPairResponder,
+  createReconnectInitiator,
+  createReconnectResponder,
+} from './crypto/handshake';
 import {
   aeadOpen,
   aeadSeal,
@@ -63,6 +68,20 @@ type Vectors = {
     ackS: string;
     confirm: string;
     confirmAck: string;
+    initiatorSendKey: string;
+    initiatorRecvKey: string;
+    responderSendKey: string;
+    responderRecvKey: string;
+  };
+  handshakeReconnect: {
+    ephemeralInitiator: string;
+    ephemeralResponder: string;
+    staticResponder: string;
+    staticResponderPublic: string;
+    helloE: string;
+    helloD: string;
+    ackE: string;
+    ackD: string;
     initiatorSendKey: string;
     initiatorRecvKey: string;
     responderSendKey: string;
@@ -211,6 +230,40 @@ test('pair handshake fails closed on the wrong secret', () => {
   // Phone typed a different code: its psk diverges, so the helper cannot open the confirm.
   const wrong = initiator.consumeAck(ack.e, ack.s, fromHex('deadbeefdeadbeef'));
   assert.equal(responder.confirm(wrong), false);
+});
+
+test('reconnect handshake reproduces the vector and keys', () => {
+  const v = vectors.handshakeReconnect;
+  const initiator = createReconnectInitiator(
+    pairKeyPair(v.ephemeralInitiator),
+    fromHex(v.staticResponderPublic),
+  );
+  const responder = createReconnectResponder({
+    ephemeral: pairKeyPair(v.ephemeralResponder),
+    staticKey: pairKeyPair(v.staticResponder),
+  });
+  const hello = initiator.hello();
+  assert.equal(toHex(hello.e), v.helloE);
+  assert.equal(toHex(hello.d), v.helloD);
+  const ack = responder.respond(hello.e, hello.d);
+  assert.equal(toHex(ack.e), v.ackE);
+  assert.equal(toHex(ack.d), v.ackD);
+  const keys = initiator.finish(ack.e, ack.d);
+  assert.equal(toHex(keys.sendKey), toHex(ack.recvKey));
+  assert.equal(toHex(keys.recvKey), toHex(ack.sendKey));
+});
+
+test('reconnect fails closed when the pinned static is wrong', () => {
+  const v = vectors.handshakeReconnect;
+  // Phone pinned a different (rotated/impostor) static key than the helper actually holds.
+  const wrongStatic = x25519PublicKey(fromHex('77'.repeat(32)));
+  const initiator = createReconnectInitiator(pairKeyPair(v.ephemeralInitiator), wrongStatic);
+  const responder = createReconnectResponder({
+    ephemeral: pairKeyPair(v.ephemeralResponder),
+    staticKey: pairKeyPair(v.staticResponder),
+  });
+  const hello = initiator.hello();
+  assert.throws(() => responder.respond(hello.e, hello.d), SecureChannelError);
 });
 
 test('base64 and utf8 codecs round-trip', () => {

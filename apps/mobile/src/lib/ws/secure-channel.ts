@@ -2,6 +2,7 @@ import type { Message } from '@slate/protocol';
 import { MessageSchema } from '@slate/protocol';
 import {
   createPairInitiator,
+  createReconnectInitiator,
   createRecordLayer,
   fromBase64,
   generateKeyPair,
@@ -11,7 +12,12 @@ import {
   utf8Encode,
 } from '@slate/protocol/crypto';
 import { randomBytes } from '@/lib/secure/crypto/rng';
-import { encMessage, secConfirmMessage, secHelloPairMessage } from './messages';
+import {
+  encMessage,
+  secConfirmMessage,
+  secHelloPairMessage,
+  secHelloReconnectMessage,
+} from './messages';
 import type { SecureResult } from './transport';
 
 // What the transport should do with a processed sec_*/enc frame.
@@ -30,13 +36,27 @@ export type SecureChannel = {
   wrapOutbound(message: Message): Message | null;
 };
 
+// Post-handshake record ops, shared by both channel kinds.
+function openEnc(records: RecordLayer, c: string): SecureOutcome {
+  const inner: unknown = JSON.parse(utf8Decode(records.open(fromBase64(c))));
+  const parsed = MessageSchema.safeParse(inner);
+  return parsed.success ? { type: 'deliver', message: parsed.data } : { type: 'fatal' };
+}
+
+function sealEnc(records: RecordLayer, message: Message): Message | null {
+  try {
+    return encMessage(toBase64(records.seal(utf8Encode(JSON.stringify(message)))));
+  } catch {
+    return null;
+  }
+}
+
 // Phone-side pair handshake driver. Ephemerals come from the device CSPRNG; the pairing code (raw
 // secret bytes) is mixed as the psk. Any crypto failure returns 'fatal' so the transport drops the
 // socket rather than continue on a broken channel.
 export function createPairChannel(secret: Uint8Array): SecureChannel {
   const initiator = createPairInitiator(generateKeyPair(randomBytes));
   let records: RecordLayer | null = null;
-
   return {
     get secure() {
       return records !== null;
@@ -71,14 +91,8 @@ export function createPairChannel(secret: Uint8Array): SecureChannel {
           }
           case 'sec_error':
             return { type: 'error', code: message.payload.code };
-          case 'enc': {
-            if (records === null) return { type: 'ignore' };
-            const inner: unknown = JSON.parse(
-              utf8Decode(records.open(fromBase64(message.payload.c))),
-            );
-            const parsed = MessageSchema.safeParse(inner);
-            return parsed.success ? { type: 'deliver', message: parsed.data } : { type: 'fatal' };
-          }
+          case 'enc':
+            return records === null ? { type: 'ignore' } : openEnc(records, message.payload.c);
           default:
             return { type: 'ignore' };
         }
@@ -87,12 +101,47 @@ export function createPairChannel(secret: Uint8Array): SecureChannel {
       }
     },
     wrapOutbound(message) {
-      if (records === null) return null;
+      return records === null ? null : sealEnc(records, message);
+    },
+  };
+}
+
+// Phone-side codeless reconnect driver. Encrypts to the pinned helper static key; the caller sends the
+// bearer token inside the channel once secured.
+export function createReconnectChannel(helperStaticPub: Uint8Array): SecureChannel {
+  const initiator = createReconnectInitiator(generateKeyPair(randomBytes), helperStaticPub);
+  let records: RecordLayer | null = null;
+  return {
+    get secure() {
+      return records !== null;
+    },
+    initialFrame() {
+      const hello = initiator.hello();
+      return secHelloReconnectMessage(toBase64(hello.e), toBase64(hello.d));
+    },
+    onFrame(message) {
       try {
-        return encMessage(toBase64(records.seal(utf8Encode(JSON.stringify(message)))));
+        switch (message.type) {
+          case 'sec_hello_ack': {
+            const payload = message.payload;
+            if (payload.mode !== 'reconnect') return { type: 'fatal' };
+            const keys = initiator.finish(fromBase64(payload.e), fromBase64(payload.d));
+            records = createRecordLayer(keys.sendKey, keys.recvKey);
+            return { type: 'secured', result: { mode: 'reconnect' } };
+          }
+          case 'sec_error':
+            return { type: 'error', code: message.payload.code };
+          case 'enc':
+            return records === null ? { type: 'ignore' } : openEnc(records, message.payload.c);
+          default:
+            return { type: 'ignore' };
+        }
       } catch {
-        return null;
+        return { type: 'fatal' };
       }
+    },
+    wrapOutbound(message) {
+      return records === null ? null : sealEnc(records, message);
     },
   };
 }

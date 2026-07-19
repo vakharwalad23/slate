@@ -95,6 +95,62 @@ export function createPairInitiator(ephemeral: KeyPair): PairInitiator {
   };
 }
 
+// Codeless reconnect (NK-shaped): the phone encrypts to the pinned helper static key, so a rotated or
+// wrong identity fails to open. No psk - trust comes from the pinned key. The bearer token is then
+// sent inside the resulting encrypted channel.
+export type ReconnectInitiator = {
+  hello(): { e: Uint8Array; d: Uint8Array };
+  finish(ackE: Uint8Array, ackD: Uint8Array): RecordKeys;
+};
+
+export function createReconnectInitiator(
+  ephemeral: KeyPair,
+  helperStaticPub: Uint8Array,
+): ReconnectInitiator {
+  const ss = initSymmetric();
+  mixHash(ss, utf8Encode('reconnect'));
+  mixHash(ss, helperStaticPub);
+  mixHash(ss, ephemeral.publicKey);
+  mixKey(ss, dh(ephemeral.secretKey, helperStaticPub));
+  return {
+    hello() {
+      return { e: ephemeral.publicKey, d: encryptAndHash(ss, new Uint8Array(0)) };
+    },
+    finish(ackE, ackD) {
+      mixHash(ss, ackE);
+      mixKey(ss, dh(ephemeral.secretKey, ackE));
+      decryptAndHash(ss, ackD);
+      const keys = split(ss);
+      return { sendKey: keys.c2s, recvKey: keys.s2c };
+    },
+  };
+}
+
+export type ReconnectResponder = {
+  respond(helloE: Uint8Array, helloD: Uint8Array): { e: Uint8Array; d: Uint8Array } & RecordKeys;
+};
+
+export function createReconnectResponder(opts: {
+  ephemeral: KeyPair;
+  staticKey: KeyPair;
+}): ReconnectResponder {
+  const ss = initSymmetric();
+  mixHash(ss, utf8Encode('reconnect'));
+  mixHash(ss, opts.staticKey.publicKey);
+  return {
+    respond(helloE, helloD) {
+      mixHash(ss, helloE);
+      mixKey(ss, dh(opts.staticKey.secretKey, helloE));
+      decryptAndHash(ss, helloD);
+      mixHash(ss, opts.ephemeral.publicKey);
+      mixKey(ss, dh(opts.ephemeral.secretKey, helloE));
+      const d = encryptAndHash(ss, new Uint8Array(0));
+      const keys = split(ss);
+      return { e: opts.ephemeral.publicKey, d, sendKey: keys.s2c, recvKey: keys.c2s };
+    },
+  };
+}
+
 // Helper side of pairing. Emits nothing psk-keyed until confirm() has verified the phone's proof.
 export type PairResponder = {
   respond(helloE: Uint8Array): { e: Uint8Array; s: Uint8Array };

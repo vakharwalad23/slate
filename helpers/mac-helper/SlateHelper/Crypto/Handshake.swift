@@ -102,6 +102,58 @@ final class PairResponder {
     }
 }
 
+// Codeless reconnect responder (NK): the phone encrypts to the pinned helper static, so a rotated or
+// impostor identity fails to open. authed stays false until the token arrives inside the channel.
+final class ReconnectResponder {
+    private let ss = SymmetricState()
+    private let ephemeral: KeyPair
+    private let staticKey: KeyPair
+
+    init(ephemeral: KeyPair, staticKey: KeyPair) {
+        self.ephemeral = ephemeral
+        self.staticKey = staticKey
+        ss.mixHash(Data("reconnect".utf8))
+        ss.mixHash(staticKey.publicKey)
+    }
+
+    func respond(helloE: Data, helloD: Data) throws -> (e: Data, d: Data, keys: RecordKeys) {
+        ss.mixHash(helloE)
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: staticKey.secretKey, publicKey: helloE))
+        _ = try ss.decryptAndHash(helloD)
+        ss.mixHash(ephemeral.publicKey)
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: ephemeral.secretKey, publicKey: helloE))
+        let d = try ss.encryptAndHash(Data())
+        let keys = ss.split()
+        return (ephemeral.publicKey, d, RecordKeys(sendKey: keys.s2c, recvKey: keys.c2s))
+    }
+}
+
+// Phone-side reconnect, mirror of createReconnectInitiator. Present so the helper's tests can drive it.
+final class ReconnectInitiator {
+    private let ss = SymmetricState()
+    private let ephemeral: KeyPair
+
+    init(ephemeral: KeyPair, helperStaticPub: Data) throws {
+        self.ephemeral = ephemeral
+        ss.mixHash(Data("reconnect".utf8))
+        ss.mixHash(helperStaticPub)
+        ss.mixHash(ephemeral.publicKey)
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: ephemeral.secretKey, publicKey: helperStaticPub))
+    }
+
+    func hello() throws -> (e: Data, d: Data) {
+        (ephemeral.publicKey, try ss.encryptAndHash(Data()))
+    }
+
+    func finish(ackE: Data, ackD: Data) throws -> RecordKeys {
+        ss.mixHash(ackE)
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: ephemeral.secretKey, publicKey: ackE))
+        _ = try ss.decryptAndHash(ackD)
+        let keys = ss.split()
+        return RecordKeys(sendKey: keys.c2s, recvKey: keys.s2c)
+    }
+}
+
 // Phone side, mirror of createPairInitiator. Present so the helper's tests can drive a full pair.
 final class PairInitiator {
     private let ss = SymmetricState()

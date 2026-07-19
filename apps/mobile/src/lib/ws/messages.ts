@@ -58,6 +58,16 @@ export function secHelloPairMessage(e: string): MessageOf<'sec_hello'> {
   };
 }
 
+export function secHelloReconnectMessage(e: string, d: string): MessageOf<'sec_hello'> {
+  return {
+    v: PROTOCOL_VERSION,
+    id: Crypto.randomUUID(),
+    reId: null,
+    type: 'sec_hello',
+    payload: { mode: 'reconnect', e, d },
+  };
+}
+
 export function secConfirmMessage(d: string): MessageOf<'sec_confirm'> {
   return {
     v: PROTOCOL_VERSION,

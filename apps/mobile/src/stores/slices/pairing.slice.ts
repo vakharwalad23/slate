@@ -85,7 +85,7 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
   resetPairing: () =>
     set({ authPhase: 'needs_pairing', pairFailureReason: null, pairExpiresAt: null }),
 
-  // auth_ok / auth_error arrive inside the encrypted channel on reconnect (next phase).
+  // auth_ok / auth_error arrive inside the encrypted channel during a reconnect.
   onAuthMessage: (message) => {
     switch (message.type) {
       case 'auth_ok':

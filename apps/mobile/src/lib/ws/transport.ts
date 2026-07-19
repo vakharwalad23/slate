@@ -2,8 +2,8 @@ import type { Message } from '@slate/protocol';
 
 export type Status = 'connecting' | 'connected' | 'disconnected';
 
-// Pairing uses the code (base64url of the helper's secret) as the psk; reconnect (next phase) uses
-// the pinned helper static key instead.
+// Pairing mixes the code (base64url of the helper's secret) as the psk; reconnect trusts the pinned
+// helper static key instead.
 export type SecureStartOptions =
   | { mode: 'pair'; secret: Uint8Array }
   | { mode: 'reconnect'; helperStaticPub: Uint8Array };

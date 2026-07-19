@@ -86,7 +86,7 @@ const main = async () => {
   for (let i = 0; i < LOCK_THRESHOLD; i += 1) last = await attemptWrong(a);
   check(`locked after ${LOCK_THRESHOLD} wrong secrets`, last === 'locked');
 
-  // Phase B: the regression - pair_request must NOT reset the lockout.
+  // The core regression: pair_request must NOT reset the lockout.
   const reqReply = await a.reply(a.send('pair_request', {}));
   check(
     'pair_request during lockout -> pair_error{locked}',

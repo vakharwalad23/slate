@@ -1,0 +1,12 @@
+{
+  "name": "slate-discovery",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fast LAN discovery of the slate helper (Android UDP broadcast)",
+  "main": "index.ts",
+  "types": "index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

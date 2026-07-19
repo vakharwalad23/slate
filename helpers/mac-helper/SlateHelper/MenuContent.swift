@@ -1,4 +1,19 @@
+import CoreImage.CIFilterBuiltins
 import SwiftUI
+
+// A QR the phone scans to pair: it carries the address (so it doubles as discovery) plus the
+// high-entropy pairing code, which the handshake mixes as the psk.
+private func pairingQR(host: String, port: UInt16, code: String, size: CGFloat) -> NSImage? {
+    let filter = CIFilter.qrCodeGenerator()
+    filter.message = Data("slate://pair?h=\(host)&p=\(port)&c=\(code)".utf8)
+    filter.correctionLevel = "M"
+    guard let output = filter.outputImage else { return nil }
+    let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+    let rep = NSCIImageRep(ciImage: scaled)
+    let image = NSImage(size: NSSize(width: size, height: size))
+    image.addRepresentation(rep)
+    return image
+}
 
 struct MenuContent: View {
     @Bindable var status: AppStatus
@@ -42,9 +57,16 @@ struct MenuContent: View {
 
             if let code = status.pairingCode {
                 Divider()
-                Text("PAIRING CODE").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                Text("SCAN TO PAIR").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                if let qr = pairingQR(host: status.boundHost, port: status.port, code: code, size: 140) {
+                    Image(nsImage: qr)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 140, height: 140)
+                        .accessibilityLabel("Pairing QR code")
+                }
                 HStack {
-                    Text(code).font(.system(.largeTitle, design: .monospaced)).fontWeight(.semibold).kerning(2)
+                    Text(code).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
                     Spacer()
                     Button {
                         let pasteboard = NSPasteboard.general
@@ -56,10 +78,10 @@ struct MenuContent: View {
                     .buttonStyle(.borderless)
                     .pointingHandCursor()
                     .accessibilityLabel("Copy pairing code")
-                    .help("Copy the pairing code")
+                    .help("Copy the pairing code for manual entry")
                 }
                 HStack(spacing: 4) {
-                    Text("Enter on your phone").font(.caption2).foregroundStyle(.secondary)
+                    Text("Scan or enter on your phone").font(.caption2).foregroundStyle(.secondary)
                     if let expiresAt = status.pairingExpiresAt, expiresAt > Date.now {
                         Text("- expires in").font(.caption2).foregroundStyle(.secondary)
                         Text(timerInterval: Date.now ... expiresAt, countsDown: true)

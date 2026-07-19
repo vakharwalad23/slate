@@ -43,12 +43,17 @@ SlateHelper/
                             (macOS 26 Tahoe focus quirk)
     ProcessRunner.swift     injectable shell runner; keeps CommandExecutor unit-testable
   Auth/
-    PairingService.swift    actor; 6-digit code, TTL <=120s; actor-level totalFailures +
-                            exponential lockedUntil (brute-force-resistant); unexpired code
-                            reused on repeat pair_request; auto-regenerated on expiry (pushes
+    PairingService.swift    actor; high-entropy pairing secret (120-bit), TTL <=120s; actor-level
+                            totalFailures + exponential lockedUntil (brute-force-resistant); unexpired
+                            secret reused on repeat pair_request; auto-regenerated on expiry (pushes
                             pair_pending so the phone countdown stays in sync)
     TokenStore.swift        actor; 32-byte token; 0600 JSON in Application Support; revoke
                             calls ConnectionRegistry.closeIfDevice to drop the live socket
+  Crypto/
+    IdentityKeyStore.swift  helper static Curve25519 identity; 0600 identity.json
+    CryptoPrimitives.swift  CryptoKit HKDF / ChaChaPoly / X25519, ct||tag framing, counter nonce
+    Handshake.swift         SymmetricState; pair (NX+psk) + reconnect (NK) responder/initiator
+    RecordLayer.swift       per-direction counter AEAD for enc frames
   Apps/
     AppEnumerator.swift     scans /Applications and standard app directories
     AppCatalog.swift        actor cache over AppEnumerator

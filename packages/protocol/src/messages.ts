@@ -15,13 +15,11 @@ function msg<T extends string, P extends z.ZodType>(type: T, payload: P) {
   return z.object({ ...envelopeBase, type: z.literal(type), payload });
 }
 
-// App -> Helper
 export const HelloMessage = msg(
   'hello',
   z.object({ deviceId: z.string(), deviceName: z.string(), appVersion: z.string() }),
 );
 export const PairRequestMessage = msg('pair_request', z.object({}));
-export const PairConfirmMessage = msg('pair_confirm', z.object({ code: z.string() }));
 export const AuthMessage = msg('auth', z.object({ token: z.string() }));
 export const CommandExecuteMessage = msg('command.execute', CommandSchema);
 export const AppsListMessage = msg('apps.list', z.object({}));
@@ -32,7 +30,17 @@ export const SubscribeStateMessage = msg(
 );
 export const PingMessage = msg('ping', z.object({ t: z.number() }));
 
-// Helper -> App
+// Secure channel (v2). Byte fields are base64; the crypto contract lives outside Zod in
+// fixtures/crypto-vectors.json. Nonces are never on the wire (implicit per-direction counters).
+export const SecHelloMessage = msg(
+  'sec_hello',
+  z.discriminatedUnion('mode', [
+    z.object({ mode: z.literal('pair'), e: z.base64() }),
+    z.object({ mode: z.literal('reconnect'), e: z.base64(), d: z.base64() }),
+  ]),
+);
+export const SecConfirmMessage = msg('sec_confirm', z.object({ d: z.base64() }));
+
 export const HelloAckMessage = msg(
   'hello_ack',
   z.object({
@@ -42,7 +50,6 @@ export const HelloAckMessage = msg(
     paired: z.boolean(),
   }),
 );
-export const PairOkMessage = msg('pair_ok', z.object({ token: z.string() }));
 export const PairErrorMessage = msg('pair_error', z.object({ reason: z.string() }));
 // Time left on the displayed code so the app countdown matches the helper; never carries the code itself.
 export const PairPendingMessage = msg('pair_pending', z.object({ expiresInMs: z.number() }));
@@ -70,19 +77,33 @@ export const StateUpdateMessage = msg(
 );
 export const PongMessage = msg('pong', z.object({ t: z.number() }));
 export const ErrorMessage = msg('error', z.object({ code: z.string(), message: z.string() }));
+export const SecHelloAckMessage = msg(
+  'sec_hello_ack',
+  z.discriminatedUnion('mode', [
+    z.object({ mode: z.literal('pair'), e: z.base64(), s: z.base64() }),
+    z.object({ mode: z.literal('reconnect'), e: z.base64(), d: z.base64() }),
+  ]),
+);
+export const SecConfirmAckMessage = msg('sec_confirm_ack', z.object({ d: z.base64() }));
+export const SecErrorMessage = msg(
+  'sec_error',
+  z.object({ code: z.string(), message: z.string() }),
+);
+// Both directions: record-layer ciphertext of a full inner v2 envelope JSON.
+export const EncMessage = msg('enc', z.object({ c: z.base64() }));
 
 export const MessageSchema = z.discriminatedUnion('type', [
   HelloMessage,
   PairRequestMessage,
-  PairConfirmMessage,
   AuthMessage,
   CommandExecuteMessage,
   AppsListMessage,
   AppsIconMessage,
   SubscribeStateMessage,
   PingMessage,
+  SecHelloMessage,
+  SecConfirmMessage,
   HelloAckMessage,
-  PairOkMessage,
   PairErrorMessage,
   PairPendingMessage,
   AuthOkMessage,
@@ -93,6 +114,10 @@ export const MessageSchema = z.discriminatedUnion('type', [
   StateUpdateMessage,
   PongMessage,
   ErrorMessage,
+  SecHelloAckMessage,
+  SecConfirmAckMessage,
+  SecErrorMessage,
+  EncMessage,
 ]);
 
 export type Message = z.infer<typeof MessageSchema>;

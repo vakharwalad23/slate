@@ -3,7 +3,8 @@ import type { Message } from '@slate/protocol';
 import { MessageSchema } from '@slate/protocol';
 import { type RediscoveryHandle, startRediscovery } from '@/lib/discovery/rediscovery';
 import { pingMessage } from './messages';
-import type { Status, Transport, TransportHandlers } from './transport';
+import { createPairChannel, createReconnectChannel, type SecureChannel } from './secure-channel';
+import type { SecureStartOptions, Status, Transport, TransportHandlers } from './transport';
 
 const HEARTBEAT_MS = 5000;
 const STALE_MS = HEARTBEAT_MS * 2;
@@ -28,6 +29,8 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let helperName: string | null = null;
 let rediscovery: RediscoveryHandle | null = null;
 let failedDirectAttempts = 0;
+// A fresh handshake per socket: created on startSecure, discarded on every (re)connect and drop.
+let secureChannel: SecureChannel | null = null;
 
 function setStatus(status: Status): void {
   handlers?.onStatus(status);
@@ -54,8 +57,6 @@ function stopRediscovery(): void {
   }
 }
 
-// Start exactly one browse to follow the helper to a new address. No-ops if one is live, if we have no
-// name to match, if we don't want to connect, or if a socket is already open.
 function beginRediscovery(gen: number): void {
   if (gen !== generation || desired !== 'connected') return;
   if (rediscovery !== null || helperName === null) return;
@@ -87,6 +88,8 @@ function detachSocket(): void {
   }
 }
 
+const SECURE_FRAME_TYPES = new Set(['sec_hello_ack', 'sec_confirm_ack', 'sec_error', 'enc']);
+
 function onRaw(data: unknown): void {
   if (typeof data !== 'string') return;
   let json: unknown;
@@ -97,11 +100,36 @@ function onRaw(data: unknown): void {
   }
   const parsed = MessageSchema.safeParse(json);
   if (!parsed.success) return;
-  if (parsed.data.type === 'pong') {
+  const message = parsed.data;
+  if (secureChannel !== null && SECURE_FRAME_TYPES.has(message.type)) {
+    const outcome = secureChannel.onFrame(message);
+    switch (outcome.type) {
+      case 'send':
+        if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(outcome.message));
+        break;
+      case 'secured':
+        handlers?.onSecure?.(outcome.result);
+        break;
+      case 'error':
+        handlers?.onSecureError?.(outcome.code);
+        break;
+      case 'deliver':
+        if (outcome.message.type === 'pong') lastPong = Date.now();
+        else handlers?.onMessage(outcome.message);
+        break;
+      case 'fatal':
+        drop(generation);
+        break;
+      case 'ignore':
+        break;
+    }
+    return;
+  }
+  if (message.type === 'pong') {
     lastPong = Date.now();
     return;
   }
-  handlers?.onMessage(parsed.data);
+  handlers?.onMessage(message);
 }
 
 function startHeartbeat(gen: number): void {
@@ -112,7 +140,9 @@ function startHeartbeat(gen: number): void {
       drop(gen);
       return;
     }
-    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(pingMessage(Date.now())));
+    // Skip ticks while a handshake is mid-flight; resume (wrapped) once the channel is secure.
+    if (secureChannel !== null && !secureChannel.secure) return;
+    if (socket.readyState === WebSocket.OPEN) send(pingMessage(Date.now()));
   }, HEARTBEAT_MS);
 }
 
@@ -140,6 +170,8 @@ function scheduleReconnect(gen: number): void {
 // Caller guarantees no live socket (connect/disconnect/drop/netinfo all detach first).
 function open(): void {
   const gen = generation;
+  // Every socket starts unencrypted; a paired reconnect must run a fresh handshake.
+  secureChannel = null;
   setStatus('connecting');
   const ws = new WebSocket(`ws://${host}:${port}`);
   socket = ws;
@@ -182,6 +214,7 @@ function disconnect(): void {
   generation += 1;
   desired = 'disconnected';
   failedDirectAttempts = 0;
+  secureChannel = null;
   clearHeartbeat();
   clearReconnect();
   stopRediscovery();
@@ -190,7 +223,19 @@ function disconnect(): void {
 }
 
 function send(message: Message): void {
-  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  const out = secureChannel?.secure ? secureChannel.wrapOutbound(message) : message;
+  if (out !== null) socket.send(JSON.stringify(out));
+}
+
+function startSecure(options: SecureStartOptions): void {
+  secureChannel =
+    options.mode === 'pair'
+      ? createPairChannel(options.secret)
+      : createReconnectChannel(options.helperStaticPub);
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(secureChannel.initialFrame()));
+  }
 }
 
 function setHandlers(next: TransportHandlers): void {
@@ -216,4 +261,11 @@ function teardown(): void {
   disconnect();
 }
 
-export const webSocketTransport: Transport = { setHandlers, connect, disconnect, send, teardown };
+export const webSocketTransport: Transport = {
+  setHandlers,
+  connect,
+  disconnect,
+  send,
+  startSecure,
+  teardown,
+};

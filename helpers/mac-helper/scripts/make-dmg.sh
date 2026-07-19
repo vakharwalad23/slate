@@ -15,11 +15,10 @@ STAGE="$BUILD/dmg"
 
 command -v create-dmg >/dev/null 2>&1 || { echo "create-dmg not found: brew install create-dmg"; exit 1; }
 
-# Generate the project if it is not present (it is gitignored; project.yml is the source of truth).
-if [ ! -d "$PROJECT" ]; then
-  command -v xcodegen >/dev/null 2>&1 || { echo "xcodegen not found: brew install xcodegen"; exit 1; }
-  xcodegen generate
-fi
+# Always regenerate from project.yml (the source of truth) so version/setting changes take effect - a
+# stale gitignored .xcodeproj would otherwise ship the wrong MARKETING_VERSION in the DMG.
+command -v xcodegen >/dev/null 2>&1 || { echo "xcodegen not found: brew install xcodegen"; exit 1; }
+xcodegen generate
 
 rm -rf "$BUILD"
 mkdir -p "$STAGE"

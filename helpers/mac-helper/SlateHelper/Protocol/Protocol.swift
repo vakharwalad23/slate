@@ -1,6 +1,6 @@
 import Foundation
 
-let PROTOCOL_VERSION = 1
+let PROTOCOL_VERSION = 2
 
 struct Capabilities: Codable, Equatable, Sendable {
     var launchApps: Bool
@@ -135,19 +135,21 @@ extension Command: Codable {
 // Mirrors messages.ts discriminatedUnion("type"). unknown(type:) tolerates anything not handled so
 // the receive loop can drop it (mirrors the Node helper's `default: return null`).
 enum Message: Sendable {
-    // app -> helper
     case hello(id: String, reId: String?, deviceId: String, deviceName: String, appVersion: String)
     case pairRequest(id: String, reId: String?)
-    case pairConfirm(id: String, reId: String?, code: String)
     case auth(id: String, reId: String?, token: String)
     case commandExecute(id: String, reId: String?, command: Command)
     case appsList(id: String, reId: String?)
     case appsIcon(id: String, reId: String?, bundleIds: [String])
     case subscribeState(id: String, reId: String?, topics: [String])
     case ping(id: String, reId: String?, t: Double)
-    // helper -> app
+    // secure channel (byte fields carried as Data; base64 is only the wire encoding)
+    case secHello(id: String, reId: String?, mode: String, e: Data, d: Data?)
+    case secConfirm(id: String, reId: String?, d: Data)
+    case enc(id: String, reId: String?, c: Data)
+    // v1 client detected pre-handshake so the helper can reply update_required before closing
+    case legacyHello(id: String)
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
-    case pairOk(id: String, reId: String?, token: String)
     case pairError(id: String, reId: String?, reason: String)
     case pairPending(id: String, reId: String?, expiresInMs: Double)
     case authOk(id: String, reId: String?)
@@ -159,5 +161,8 @@ enum Message: Sendable {
     case stateUpdate(id: String, reId: String?, topic: String, value: String)
     case pong(id: String, reId: String?, t: Double)
     case error(id: String, reId: String?, code: String, message: String)
+    case secHelloAck(id: String, reId: String?, mode: String, e: Data, s: Data?, d: Data?)
+    case secConfirmAck(id: String, reId: String?, d: Data)
+    case secError(id: String, reId: String?, code: String, message: String)
     case unknown(type: String, id: String, reId: String?)
 }

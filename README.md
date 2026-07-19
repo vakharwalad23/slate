@@ -29,17 +29,17 @@ real macOS app icons, pulled live from the Mac. Local-network only, with secure 
 Built with React Native / Expo (one app for iOS and Android) and a native Swift menu-bar helper.
 
 > [!NOTE]
-> slate is local-network only and pairs with a revocable per-device token, but traffic is **not yet
-> end-to-end encrypted** - on an untrusted Wi-Fi it is open to man-in-the-middle / replay. App-layer
-> E2E encryption (code-authenticated X25519 + ChaCha20-Poly1305) is the next priority - see
-> [Security](#security). Until then, keep the helper off untrusted networks.
+> slate is local-network only. Traffic is **end-to-end encrypted** - a code-authenticated X25519
+> handshake with ChaCha20-Poly1305, so the channel is sealed and man-in-the-middle fails closed
+> without any TLS certificates. See [Security](#security).
 
 ## Why slate?
 
 Most phone-as-deck apps route through a vendor cloud, lock you to one mobile platform, or show
 generic icons. slate is local-network only - no account, no relay, nothing leaves your Wi-Fi - runs
 on both iOS and Android from one codebase, and renders the real macOS app icons pulled live from
-your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at any time.
+your Mac. The link is end-to-end encrypted; pairing is a QR you scan (or a code you type) plus a
+per-device token you can revoke at any time.
 
 ## Features
 
@@ -47,8 +47,9 @@ your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at an
   the Mac and cached on the phone - not generic glyphs.
 - **Local network only, no cloud.** Everything runs over your LAN via WebSocket. No account, no
   relay, nothing leaves your Wi-Fi.
-- **Secure pairing.** A 6-digit code shown on the Mac plus a per-device token; rate-limited with
-  lockout, and every device is revocable from the helper menu.
+- **End-to-end encrypted.** A code-authenticated X25519 handshake with ChaCha20-Poly1305 seals every
+  frame over the LAN; scan the QR on the Mac (or type the code) to pair, plus a revocable per-device
+  token, rate-limited with lockout. MITM fails closed, no TLS certificates.
 - **iOS and Android.** One app, both platforms.
 - **Portrait and a landscape dock mode.** Stand the phone sideways and it becomes a control surface
   with a side rail.
@@ -66,8 +67,8 @@ your Mac. Pairing is a 6-digit code plus a per-device token you can revoke at an
 - **Auto-discovery and resilience.** Bonjour / mDNS plus a subnet scan find the Mac automatically
   (manual host:port always available); auto-reconnect with backoff, and it follows the Mac to a new
   IP after a network change.
-- **A real menu-bar helper.** Server status, pairing code, paired-device list with revoke, a logs
-  panel, a configurable port, and launch-at-login.
+- **A real menu-bar helper.** Server status, a scan-to-pair QR + code, paired-device list with revoke,
+  a logs panel, a configurable port, and launch-at-login.
 
 > New to slate? The **[user guide](docs/guide.md)** walks through every feature, option, and gesture
 > step by step.
@@ -94,6 +95,7 @@ A pnpm monorepo.
 | --- | --- |
 | `apps/mobile` | Expo SDK 56 app (TypeScript) - the deck UI |
 | `packages/protocol` | Shared TS types + JSON Schema - the wire contract |
+| `packages/slate-discovery` | Expo module - Android UDP broadcast discovery |
 | `helpers/mac-helper` | Swift menu-bar helper (the primary macOS backend) |
 | `helpers/node-helper` | Node `ws` MVP helper (proves the loop; `launch_app` only) |
 | `docs/` | Architecture, stack, code-logic, and flow docs |
@@ -180,22 +182,22 @@ pnpm -F @slate/mobile android
 
 ### 4. Pair and use
 
-Open the app. It auto-discovers the helper (or enter host:port manually), then tap Pair and type the
-6-digit code shown in the Mac menu. Add buttons, pick an action and icon, and tap to run them on the
-Mac.
+Open the app. It auto-discovers the helper (or enter host:port manually), then tap Pair and scan the
+QR shown in the Mac menu (or type the code under it). Add buttons, pick an action and icon, and tap to
+run them on the Mac.
 
-Auto-discovery usually finds the Mac on its own; if it ever misses, type the IP shown in the Mac
-menu-bar helper into the host box (faster UDP-broadcast discovery is on the way).
+Auto-discovery usually finds the Mac on its own (Android uses a UDP broadcast that answers in one
+round trip); if it ever misses, type the IP shown in the Mac menu-bar helper into the host box.
 
 ## Security
 
-slate is local-network only. Today it uses `ws://` plus a per-device token on a trusted network:
-tokens are not encrypted in transit, so there is no protection against MITM or replay on an untrusted
-LAN. Pairing is rate-limited with lockout, and devices are revocable from the helper. The next
-priority is application-layer end-to-end encryption - a code-authenticated X25519 key exchange (the
-6-digit pairing code authenticates the handshake) with ChaCha20-Poly1305, so the channel is encrypted
-and MITM fails closed without any TLS certificates. Until then, do not expose the helper's port to
-untrusted networks.
+slate is local-network only, and all application traffic is end-to-end encrypted over the existing
+`ws://` transport. Pairing runs a code-authenticated X25519 handshake (the pairing code shown on the
+Mac is mixed in as the pre-shared key), then ChaCha20-Poly1305 seals every frame - commands, the
+bearer token, even ping/pong. The phone pins the helper's identity key at pairing, so reconnecting
+needs no code and an impersonating helper fails closed. Pairing is rate-limited with lockout, and
+devices are revocable from the helper. Full threat model, handshake spec, and key schedule:
+[docs/security.md](docs/security.md).
 
 ## Development
 
@@ -215,11 +217,8 @@ comments, and docs are ASCII-only.
 
 Next up, in priority order:
 
-- **End-to-end encryption.** Application-layer, code-authenticated X25519 + ChaCha20-Poly1305 over the
-  existing connection - encrypts the channel and stops MITM, with no certificates and no native
-  modules.
-- **Faster discovery.** A UDP broadcast fast path on Android plus Bonjour on iOS, so the Mac is found
-  in well under a second before falling back to the subnet scan.
+- **Faster iOS discovery.** Android now finds the Mac via a UDP broadcast fast path; a native
+  `NWBrowser` leg for iOS is the remaining piece before the subnet scan becomes a rare fallback.
 - **Distribution and polish.** Notarizing the macOS DMG (it is self-signed today), plus first-run
   onboarding and accessibility passes.
 
@@ -240,7 +239,8 @@ type-check pass. `main` is protected: changes land via pull request, not direct 
 New here? Read the **[slate user guide](./docs/guide.md)** - every feature and how to use it.
 
 Developer docs in [`docs/`](./docs): [React Native / Expo](./docs/react-native-expo.md) |
-[code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) | [SwiftUI helper](./docs/swiftui.md).
+[code logic](./docs/code-logic.md) | [flows](./docs/doc-flow.md) | [SwiftUI helper](./docs/swiftui.md) |
+[security](./docs/security.md).
 
 ## License
 

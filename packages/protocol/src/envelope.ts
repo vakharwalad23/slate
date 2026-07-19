@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
 
 // Every message shares these fields; specific messages refine `type` and `payload`.
 // reId correlates a response to its request id; null on requests.

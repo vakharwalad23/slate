@@ -9,6 +9,10 @@
     ".": {
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./crypto": {
+      "import": "./src/crypto/index.ts",
+      "default": "./src/crypto/index.ts"
     }
   },
   "scripts": {
@@ -17,6 +21,9 @@
     "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
+    "@noble/ciphers": "2.2.0",
+    "@noble/curves": "2.2.0",
+    "@noble/hashes": "2.2.0",
     "zod": "4.4.3"
   }
 }

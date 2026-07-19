@@ -4,6 +4,7 @@ import Foundation
 struct HelperServices: Sendable {
     let tokenStore: TokenStore
     let pairing: PairingService
+    let identity: KeyPair
     let catalog: AppCatalog
     let executor: CommandExecuting
     let capabilities: Capabilities

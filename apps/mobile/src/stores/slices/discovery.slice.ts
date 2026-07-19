@@ -1,9 +1,11 @@
+import { discoverHelpers } from 'slate-discovery';
 import type { StateCreator } from 'zustand';
 import { probeHelper, scanForHelpers } from '@/lib/discovery/subnet-scan';
 import { type BrowseHandle, type Found, startBrowse } from '@/lib/discovery/zeroconf';
 import type { RootState } from '@/stores/store';
 
 const SCAN_PORT = 8765;
+const UDP_DISCOVERY_MS = 1500;
 
 // Not serializable, so kept outside the store. scanGeneration cancels an in-flight subnet scan.
 let handle: BrowseHandle | null = null;
@@ -42,6 +44,13 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
         });
       }
 
+      // UDP broadcast fast path (Android): one round trip, no radio-saturating sweep. Resolves [] on
+      // other platforms so Bonjour + the sweep still cover them.
+      void discoverHelpers(SCAN_PORT, UDP_DISCOVERY_MS).then((helpers) => {
+        if (gen !== scanGeneration) return;
+        for (const helper of helpers) addFound(helper.name, helper.host, helper.port);
+      });
+
       // mDNS where it works (instant); a no-op where the native module is unavailable.
       handle = startBrowse(
         (found) => {
@@ -57,6 +66,7 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
           if (gen === scanGeneration) addFound(name, host, SCAN_PORT);
         },
         () => gen !== scanGeneration,
+        known.length > 0 ? known : undefined,
       )
         .then((scanned) => {
           if (!scanned && gen === scanGeneration) {

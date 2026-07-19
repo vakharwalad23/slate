@@ -13,10 +13,14 @@ type HelperInfo = { name: string; version: string; capabilities: Capabilities };
 type CommandResult = { ok: boolean; error?: string };
 
 const FOREGROUND_TOPIC = 'foregroundApp';
+// A v2 helper answers hello with hello_ack within a round trip; a silent socket means an old helper.
+const HELLO_ACK_TIMEOUT_MS = 3000;
 
 export type ConnectionSlice = {
   status: Status;
   helper: HelperInfo | null;
+  // Set when a connected helper never sends hello_ack in time - it speaks an older protocol.
+  helperOutdated: boolean;
   lastResult: CommandResult | null;
   foregroundApp: string | null;
   host: string;
@@ -33,20 +37,41 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
   set,
   get,
 ) => {
+  let helloAckTimer: ReturnType<typeof setTimeout> | null = null;
+  const clearHelloAckTimer = () => {
+    if (helloAckTimer !== null) {
+      clearTimeout(helloAckTimer);
+      helloAckTimer = null;
+    }
+  };
+
   // Registered once at store creation; the transport never imports the store (one-way edge).
   webSocketTransport.setHandlers({
     onStatus: (status) => {
       set({ status });
-      if (status === 'connected') webSocketTransport.send(helloMessage());
+      if (status === 'connected') {
+        set({ helperOutdated: false });
+        clearHelloAckTimer();
+        helloAckTimer = setTimeout(() => {
+          helloAckTimer = null;
+          set({ helperOutdated: true });
+        }, HELLO_ACK_TIMEOUT_MS);
+        webSocketTransport.send(helloMessage());
+      }
       if (status === 'disconnected') {
-        set({ helper: null, foregroundApp: null });
+        clearHelloAckTimer();
+        set({ helper: null, foregroundApp: null, helperOutdated: false });
         get().onSocketDown();
       }
     },
+    onSecure: (result) => get().onSecure(result),
+    onSecureError: (code) => get().onSecureError(code),
     onMessage: (message) => {
       switch (message.type) {
         case 'hello_ack':
+          clearHelloAckTimer();
           set({
+            helperOutdated: false,
             helper: {
               name: message.payload.helperName,
               version: message.payload.helperVersion,
@@ -63,7 +88,6 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         }
         case 'auth_ok':
         case 'auth_error':
-        case 'pair_ok':
         case 'pair_error':
           get().onAuthMessage(message);
           break;
@@ -93,6 +117,7 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
   return {
     status: 'disconnected',
     helper: null,
+    helperOutdated: false,
     lastResult: null,
     foregroundApp: null,
     host: '',

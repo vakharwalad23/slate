@@ -22,11 +22,21 @@ import { radii, spacing, useTheme } from '@/theme';
 const PAIRING_PHASES = ['needs_pairing', 'code_entry', 'confirming', 'auth_error', 'pair_error'];
 
 export default function HomeScreen() {
-  const { status, authPhase, bootstrapped, connect, disconnect, startScan, stopScan } = useStore(
+  const {
+    status,
+    authPhase,
+    bootstrapped,
+    helperOutdated,
+    connect,
+    disconnect,
+    startScan,
+    stopScan,
+  } = useStore(
     useShallow((s) => ({
       status: s.status,
       authPhase: s.authPhase,
       bootstrapped: s.bootstrapped,
+      helperOutdated: s.helperOutdated,
       connect: s.connect,
       disconnect: s.disconnect,
       startScan: s.startScan,
@@ -142,6 +152,11 @@ export default function HomeScreen() {
             <Button title="Disconnect" onPress={disconnect} variant="danger" />
           ) : (
             <Button title="Connect" onPress={doConnect} disabled={!bootstrapped} />
+          )}
+          {helperOutdated && (
+            <Text variant="caption" style={{ color: colors.danger }}>
+              This Mac is running an older slate helper. Update the helper to connect.
+            </Text>
           )}
           <TestConnectionButton
             host={host.trim()}

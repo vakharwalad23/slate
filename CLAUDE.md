@@ -38,6 +38,6 @@ Full build spec: `plan.md` (gitignored).
 
 ## Docs (`docs/`)
 
-`react-native-expo.md` | `code-logic.md` | `doc-flow.md` | `swiftui.md`
+`react-native-expo.md` | `code-logic.md` | `doc-flow.md` | `swiftui.md` | `security.md`
 
 <!-- Keep this file under ~80 lines. Procedures belong in skills; standards belong in rules. -->

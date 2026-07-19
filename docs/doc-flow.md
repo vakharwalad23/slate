@@ -7,40 +7,50 @@ pure data-flow/state-diagram doc - say so and this is repurposed.)
 ## Discovery -> connect
 
 ```
-app                         helper
- |  browse _slate._tcp  -->  (advertises via dns-sd)
+app                              helper
+ |  UDP broadcast "SLATE-DISCOVER-v1" (Android)  -->  UDPResponder (BSD dgram socket)
+ |  <-- unicast "SLATE-HELPER-v1\n<port>\n<name>"      (host = reply source)
+ |  browse _slate._tcp (iOS)  -->                 (advertises via dns-sd)
  |  <-- service (host, port)
- |  subnet /24 WS-handshake scan in parallel (reliable path when mDNS is unavailable)
- |  (or user enters host:port manually - always available)
- |  open ws://host:port  -->
- |  hello                -->
- |  <-- hello_ack { capabilities, paired }
+ |  ordered subnet /24 WS-handshake scan in parallel (fallback; gateway-adjacent + last-known first)
+ |  (or user enters host:port / scans the pairing QR - always available)
+ |  open ws://host:port  -->  hello  -->  <-- hello_ack { capabilities, paired }
 ```
 
-Android emulators don't forward multicast and react-native-zeroconf is unavailable on the New Arch
-Android build, so `subnet-scan.ts` (probe every host on the phone's /24 with the WS hello handshake)
-is the primary auto-discovery there; manual entry is the guaranteed fallback. iOS needs the
-local-network permission + `NSBonjourServices`.
+Layered, first hit wins: last-known host -> UDP broadcast (Android, `packages/slate-discovery`; sending
+broadcast + a unicast reply need no MulticastLock) / Bonjour (iOS) -> the ordered subnet sweep
+(`subnet-scan.ts`) -> manual/QR. iOS needs the local-network permission + `NSBonjourServices`; the
+Android UDP module makes discovery a single round trip instead of a 254-host sweep.
 
-## Pairing
-
-```
-app                         helper
- |  pair_request         -->  shows 6-digit code (TTL <=120s, rate-limited)
- |  <-- pair_pending { expiresInMs }   (time left only; phone shows a matching countdown)
- |       ...on TTL expiry the helper auto-mints a new code + pushes pair_pending again
- |  pair_confirm { code }-->
- |  <-- pair_ok { token }     (token stored in expo-secure-store)
-```
-
-## Command execute
+## Pairing (code-authenticated X25519; see security.md)
 
 ```
-app                         helper
+app                             helper
+ |  pair_request           -->   shows QR + code (TTL <=120s, rate-limited)
+ |  <-- pair_pending { expiresInMs }     (time left only; phone shows a countdown)
+ |  sec_hello { e }        -->                (e = phone ephemeral)
+ |  <-- sec_hello_ack { e, s }            (s = helper static key, encrypted)
+ |  sec_confirm { d }      -->   opens d with the code (psk); wrong -> sec_error{bad_code}
+ |  <-- sec_confirm_ack { d }             (token issued INSIDE the encrypted channel)
+ |  ...phone pins the helper static key + stores the token; channel is now secure
+```
+
+## Command execute (inside the encrypted channel)
+
+```
+app                             helper
  |  build semantic Command
- |  auth { token }       -->  <-- auth_ok
- |  command.execute(Cmd) -->  executor maps Cmd -> macOS action
- |  <-- command.result { ok, error? }
+ |  enc(command.execute(Cmd)) -->  open -> executor maps Cmd -> macOS action
+ |  <-- enc(command.result { ok, error? })
+```
+
+## Reconnect (codeless; NK handshake to the pinned key)
+
+```
+app                             helper
+ |  sec_hello { e, d }     -->   d encrypted to the pinned static; mismatch -> sec_error{bad_handshake}
+ |  <-- sec_hello_ack { e, d }            (both derive session keys)
+ |  enc(auth { token })    -->   <-- enc(auth_ok)   (or auth_error if revoked)
 ```
 
 ## Icon fetch + cache
@@ -86,10 +96,10 @@ app: receives close, enters reconnect path -> auth fails -> enters needs_pairing
 
 ```
 app                         helper
- |  (after auth_ok or pair_ok, gated on capabilities.liveState)
- |  subscribe.state { topics: ["foregroundApp"] }  -->
+ |  (once paired/authed, inside enc, gated on capabilities.liveState)
+ |  enc(subscribe.state { topics: ["foregroundApp"] })  -->
  |                          ForegroundMonitor starts; pushes current frontmost immediately
- |  <-- state.update { topic: "foregroundApp", value: bundleId }
+ |  <-- enc(state.update { topic: "foregroundApp", value: bundleId })
  |  setForegroundApp(bundleId)
  |  if a deck's autoProfile.matchBundleId matches -> switch to that deck
  |       ...repeated on every NSWorkspace app-activation notification

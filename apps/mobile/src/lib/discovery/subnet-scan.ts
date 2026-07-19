@@ -12,11 +12,30 @@ const PROBE_TIMEOUT_MS = 800;
 const SUBNET_RETRIES = 8;
 const SUBNET_RETRY_MS = 400;
 
+// Routers, servers, and static leases cluster in the low range, so probe .1-.20 first; a stale
+// last-known octet is tried before anything. This finds the helper in the first batch instead of
+// ~20s into a linear sweep - the fix for "the scan sometimes never finds the Mac" (it did, too late).
+const GATEWAY_ADJACENT = 20;
+
+function scanOrder(preferredOctet: number | null): number[] {
+  const low: number[] = [];
+  const high: number[] = [];
+  for (let i = 1; i <= 254; i += 1) (i <= GATEWAY_ADJACENT ? low : high).push(i);
+  const ordered = [...low, ...high];
+  if (preferredOctet !== null) {
+    const idx = ordered.indexOf(preferredOctet);
+    if (idx > 0) {
+      ordered.splice(idx, 1);
+      ordered.unshift(preferredOctet);
+    }
+  }
+  return ordered;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The phone's own Wi-Fi /24 prefix (e.g. "192.168.31."), or null if not on Wi-Fi after retrying.
 async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> {
   for (let attempt = 0; attempt < SUBNET_RETRIES; attempt += 1) {
     if (isCancelled()) return null;
@@ -31,8 +50,8 @@ async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> 
   return null;
 }
 
-// Resolves the helper name if host:port answers the slate handshake, else null. Exported for the fast
-// path: a single clean probe of a known host, before the wide sweep saturates the radio.
+// Exported for the fast path: a single clean probe of a known host, before the wide sweep saturates
+// the radio.
 export function probeHelper(host: string, port: number): Promise<string | null> {
   return new Promise((resolve) => {
     let settled = false;
@@ -61,16 +80,22 @@ export function probeHelper(host: string, port: number): Promise<string | null> 
   });
 }
 
-// Probe every host on the phone's subnet; report each slate helper as it answers. Returns false if no
-// Wi-Fi subnet could be determined (so the caller can surface "enter the host manually").
+// Returns false if no Wi-Fi subnet could be determined, so the caller can surface "enter the host
+// manually".
 export async function scanForHelpers(
   port: number,
   onFound: (host: string, name: string) => void,
   isCancelled: () => boolean,
+  preferredHost?: string,
 ): Promise<boolean> {
   const prefix = await subnetPrefix(isCancelled);
   if (prefix === null) return false;
-  const hosts = Array.from({ length: 254 }, (_, i) => `${prefix}${i + 1}`);
+  // Prioritize the last-known host's octet only if it is on this same subnet.
+  const preferredOctet =
+    preferredHost !== undefined && preferredHost.startsWith(prefix)
+      ? Number(preferredHost.slice(prefix.length)) || null
+      : null;
+  const hosts = scanOrder(preferredOctet).map((octet) => `${prefix}${octet}`);
   let next = 0;
   const worker = async () => {
     while (next < hosts.length && !isCancelled()) {

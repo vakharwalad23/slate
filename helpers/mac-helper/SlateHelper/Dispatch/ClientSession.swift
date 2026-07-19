@@ -3,15 +3,24 @@ import Foundation
 
 let foregroundTopic = "foregroundApp"
 
-// Per-connection handler holding the auth state. Mirrors the Node helper's handleMessage routing,
-// extended with pairing + auth gating. `ping` is intentionally allowed before auth: the phone's
-// heartbeat starts on TCP connect (before pairing) and gating it would drop the socket every cycle.
+// Per-connection handler. Three phases: plaintext (hello/ping/pair_request/sec_hello allowed), pairing
+// (awaiting the code proof), and secure (all app traffic wrapped in enc). `ping` is allowed before the
+// handshake so the phone's heartbeat does not drop the socket while pairing. The token is issued only
+// inside the encrypted channel (never as a plaintext frame).
 actor ClientSession {
+    private enum Phase {
+        case plaintext
+        case pairing(responder: PairResponder, snapshotExpiresAt: Date)
+        case secure(records: RecordLayer)
+    }
+
     private let services: HelperServices
+    private var phase: Phase = .plaintext
     private var authed = false
     private var deviceId: String?
     private var deviceName: String?
     private var send: (@Sendable (Message) -> Void)?
+    private var close: (@Sendable () -> Void)?
     private var pairingTask: Task<Void, Never>?
     private var foregroundMonitor: ForegroundMonitor?
 
@@ -19,8 +28,22 @@ actor ClientSession {
         self.services = services
     }
 
-    func handle(_ message: Message, send: @escaping @Sendable (Message) -> Void) async {
+    func handle(
+        _ message: Message,
+        send: @escaping @Sendable (Message) -> Void,
+        close: @escaping @Sendable () -> Void
+    ) async {
         self.send = send
+        self.close = close
+
+        if case let .secure(records) = phase {
+            if case let .enc(_, _, c) = message {
+                await handleEnc(c, records: records)
+            }
+            // Non-enc plaintext after the handshake is ignored here; A4 rejects and closes.
+            return
+        }
+
         switch message {
         case let .hello(id, _, helloDeviceId, helloDeviceName, _):
             deviceId = helloDeviceId
@@ -36,85 +59,176 @@ actor ClientSession {
             send(.pong(id: newMessageId(), reId: id, t: t))
 
         case let .pairRequest(id, _):
-            // Auto-regenerate: the loop re-mints a fresh code each time the displayed one expires, so the
-            // menu never shows a dead code; it stops on pair_ok or when the connection closes.
             await startPairingLoop(replyId: id)
 
-        case let .pairConfirm(id, _, code):
-            switch await services.pairing.confirm(code: code) {
-            case .ok:
-                guard let deviceId else {
-                    send(.pairError(id: newMessageId(), reId: id, reason: "no hello"))
-                    return
-                }
-                let token = await services.tokenStore.issue(deviceId: deviceId, deviceName: deviceName ?? "device")
-                authed = true
-                cancelPairingLoop()
-                services.onPairingCode(nil, nil)
-                services.onDevicesChanged()
-                send(.pairOk(id: newMessageId(), reId: id, token: token))
-            case .badCode:
-                send(.pairError(id: newMessageId(), reId: id, reason: "bad code"))
-            case .expired:
-                send(.pairError(id: newMessageId(), reId: id, reason: "expired"))
-            case .locked:
-                cancelPairingLoop()
-                services.onPairingCode(nil, nil)
-                send(.pairError(id: newMessageId(), reId: id, reason: "locked"))
-            }
+        case let .secHello(id, _, mode, e, _):
+            await handleSecHello(id: id, mode: mode, e: e, send: send)
 
-        case let .auth(id, _, token):
-            if let resolved = await services.tokenStore.validate(token: token) {
-                authed = true
-                deviceId = resolved
-                send(.authOk(id: newMessageId(), reId: id))
-            } else {
-                services.onLog(false, "auth rejected: invalid token")
-                send(.authError(id: newMessageId(), reId: id, reason: "invalid token"))
-            }
+        case let .secConfirm(id, _, d):
+            await handleSecConfirm(id: id, d: d, send: send)
 
-        case let .commandExecute(id, _, command):
-            guard requireAuth(id: id, send: send) else { return }
-            let outcome = await services.executor.execute(command)
-            if !outcome.ok { services.onLog(false, "command failed: \(outcome.error ?? "unknown")") }
-            send(.commandResult(id: newMessageId(), reId: id, ok: outcome.ok, error: outcome.error))
+        case let .commandExecute(id, _, _):
+            _ = requireAuth(id: id, send: send)
 
         case let .appsList(id, _):
-            guard requireAuth(id: id, send: send) else { return }
-            let apps = await services.catalog.refresh()
-            send(.appsListResponse(id: newMessageId(), reId: id, apps: apps))
+            _ = requireAuth(id: id, send: send)
 
-        case let .appsIcon(id, _, bundleIds):
-            guard requireAuth(id: id, send: send) else { return }
-            for bundleId in bundleIds {
-                guard let app = await services.catalog.info(for: bundleId) else { continue }
-                let png = await Task.detached { IconRenderer.pngBase64(forBundlePath: app.path) }.value
-                guard let png else { continue }
-                // One icon per WS frame; a single large batched frame OOMs Android's WebSocket.
-                send(.appsIconResponse(
-                    id: newMessageId(), reId: id,
-                    icons: [IconEntry(bundleId: bundleId, pngBase64: png, iconVersion: app.iconVersion)]
-                ))
-                await Task.yield()
-            }
+        case let .appsIcon(id, _, _):
+            _ = requireAuth(id: id, send: send)
 
-        case let .subscribeState(id, _, topics):
-            guard requireAuth(id: id, send: send) else { return }
-            await updateForegroundSubscription(on: topics.contains(foregroundTopic), send: send)
+        case let .subscribeState(id, _, _):
+            _ = requireAuth(id: id, send: send)
 
         default:
             break
         }
     }
 
-    // Replaces any existing subscription so a re-subscribe (or unsubscribe via an empty topic set) is clean.
-    private func updateForegroundSubscription(on: Bool, send: @escaping @Sendable (Message) -> Void) async {
+    private func handleSecHello(id: String, mode: String, e: Data, send: @escaping @Sendable (Message) -> Void) async {
+        guard mode == "pair" else {
+            send(.secError(id: newMessageId(), reId: id, code: "bad_handshake", message: "unsupported mode"))
+            return
+        }
+        switch await services.pairing.sessionState() {
+        case .locked:
+            send(.secError(id: newMessageId(), reId: id, code: "locked", message: "too many attempts"))
+        case .none:
+            send(.secError(id: newMessageId(), reId: id, code: "code_expired", message: "no active code"))
+        case let .active(secret, expiresAt):
+            let ephemeral = CryptoPrimitives.generateKeyPair()
+            let responder = PairResponder(
+                ephemeral: KeyPair(secretKey: ephemeral.secretKey, publicKey: ephemeral.publicKey),
+                staticKey: services.identity,
+                secret: secret
+            )
+            guard let ack = try? responder.respond(helloE: e) else {
+                send(.secError(id: newMessageId(), reId: id, code: "bad_handshake", message: "bad key"))
+                return
+            }
+            phase = .pairing(responder: responder, snapshotExpiresAt: expiresAt)
+            send(.secHelloAck(id: newMessageId(), reId: id, mode: "pair", e: ack.e, s: ack.s, d: nil))
+        }
+    }
+
+    private func handleSecConfirm(id: String, d: Data, send: @escaping @Sendable (Message) -> Void) async {
+        guard case let .pairing(responder, snapshotExpiresAt) = phase else {
+            send(.secError(id: newMessageId(), reId: id, code: "protocol", message: "unexpected sec_confirm"))
+            return
+        }
+        if Date() >= snapshotExpiresAt {
+            phase = .plaintext
+            send(.secError(id: newMessageId(), reId: id, code: "code_expired", message: "code expired"))
+            return
+        }
+        guard responder.confirm(confirmD: d) else {
+            phase = .plaintext
+            switch await services.pairing.recordFailure() {
+            case .badCode:
+                send(.secError(id: newMessageId(), reId: id, code: "bad_code", message: "wrong code"))
+            case .locked:
+                cancelPairingLoop()
+                services.onPairingCode(nil, nil)
+                send(.secError(id: newMessageId(), reId: id, code: "locked", message: "too many attempts"))
+            }
+            return
+        }
+        guard let deviceId else {
+            phase = .plaintext
+            send(.secError(id: newMessageId(), reId: id, code: "protocol", message: "no hello"))
+            return
+        }
+        await services.pairing.recordSuccess()
+        let token = await services.tokenStore.issue(deviceId: deviceId, deviceName: deviceName ?? "device")
+        guard let complete = try? responder.complete(token: token),
+              let records = try? RecordLayer(sendKey: complete.keys.sendKey, recvKey: complete.keys.recvKey) else {
+            phase = .plaintext
+            send(.secError(id: newMessageId(), reId: id, code: "bad_handshake", message: "complete failed"))
+            return
+        }
+        authed = true
+        cancelPairingLoop()
+        services.onPairingCode(nil, nil)
+        services.onDevicesChanged()
+        send(.secConfirmAck(id: newMessageId(), reId: id, d: complete.confirmAck))
+        phase = .secure(records: records)
+    }
+
+    // Decrypt one inner envelope and dispatch it; replies are re-sealed. Nested secure frames or a
+    // decrypt failure are protocol violations and close the connection.
+    private func handleEnc(_ c: Data, records: RecordLayer) async {
+        guard let inner = try? records.open(c), case let .success(message) = decodeMessage(inner) else {
+            close?()
+            return
+        }
+        switch message {
+        case let .auth(id, _, token):
+            if let resolved = await services.tokenStore.validate(token: token) {
+                authed = true
+                deviceId = resolved
+                emitSecure(.authOk(id: newMessageId(), reId: id), records)
+            } else {
+                services.onLog(false, "auth rejected: invalid token")
+                emitSecure(.authError(id: newMessageId(), reId: id, reason: "invalid token"), records)
+            }
+
+        case let .ping(id, _, t):
+            emitSecure(.pong(id: newMessageId(), reId: id, t: t), records)
+
+        case let .commandExecute(id, _, command):
+            guard authed else { return emitUnauthorized(id: id, records: records) }
+            let outcome = await services.executor.execute(command)
+            if !outcome.ok { services.onLog(false, "command failed: \(outcome.error ?? "unknown")") }
+            emitSecure(.commandResult(id: newMessageId(), reId: id, ok: outcome.ok, error: outcome.error), records)
+
+        case let .appsList(id, _):
+            guard authed else { return emitUnauthorized(id: id, records: records) }
+            let apps = await services.catalog.refresh()
+            emitSecure(.appsListResponse(id: newMessageId(), reId: id, apps: apps), records)
+
+        case let .appsIcon(id, _, bundleIds):
+            guard authed else { return emitUnauthorized(id: id, records: records) }
+            for bundleId in bundleIds {
+                guard let app = await services.catalog.info(for: bundleId) else { continue }
+                let png = await Task.detached { IconRenderer.pngBase64(forBundlePath: app.path) }.value
+                guard let png else { continue }
+                emitSecure(.appsIconResponse(
+                    id: newMessageId(), reId: id,
+                    icons: [IconEntry(bundleId: bundleId, pngBase64: png, iconVersion: app.iconVersion)]
+                ), records)
+                await Task.yield()
+            }
+
+        case let .subscribeState(id, _, topics):
+            guard authed else { return emitUnauthorized(id: id, records: records) }
+            await updateForegroundSubscription(on: topics.contains(foregroundTopic))
+
+        default:
+            // Nested enc/sec_* or any unexpected inner type is a protocol violation.
+            close?()
+        }
+    }
+
+    private func emitSecure(_ message: Message, _ records: RecordLayer) {
+        guard let data = try? encodeMessage(message), let sealed = try? records.seal(data) else { return }
+        send?(.enc(id: newMessageId(), reId: nil, c: sealed))
+    }
+
+    private func emitUnauthorized(id: String, records: RecordLayer) {
+        emitSecure(.error(id: newMessageId(), reId: id, code: "unauthorized", message: "auth required"), records)
+    }
+
+    private func updateForegroundSubscription(on: Bool) async {
         await foregroundMonitor?.stop()
         foregroundMonitor = nil
         guard on else { return }
-        foregroundMonitor = await ForegroundMonitor { bundleId in
-            send(.stateUpdate(id: newMessageId(), reId: nil, topic: foregroundTopic, value: bundleId))
+        foregroundMonitor = await ForegroundMonitor { [weak self] bundleId in
+            Task { await self?.emitForeground(bundleId) }
         }
+    }
+
+    private func emitForeground(_ bundleId: String) {
+        guard case let .secure(records) = phase else { return }
+        emitSecure(.stateUpdate(id: newMessageId(), reId: nil, topic: foregroundTopic, value: bundleId), records)
     }
 
     private func requireAuth(id: String, send: @escaping @Sendable (Message) -> Void) -> Bool {
@@ -125,8 +239,6 @@ actor ClientSession {
 
     private func startPairingLoop(replyId: String?) async {
         cancelPairingLoop()
-        // Mint the first code synchronously so it is live the moment pair_request returns; the loop then
-        // only handles regeneration on expiry. replyId addresses an immediate lockout back to that request.
         guard let firstWait = await pushNextCode(replyId: replyId) else { return }
         pairingTask = Task { [weak self] in
             var wait = firstWait
@@ -138,10 +250,8 @@ actor ClientSession {
         }
     }
 
-    // Mint or reuse the code, push it to the menu + app, and return seconds until it expires (nil to stop).
     private func pushNextCode(replyId: String?) async -> Double? {
         let result = await services.pairing.beginPairing()
-        // pair_ok may have cancelled us during the await; do not re-assert a stale code.
         if Task.isCancelled { return nil }
         switch result {
         case let .code(code, expiresAt):
@@ -161,7 +271,6 @@ actor ClientSession {
         pairingTask = nil
     }
 
-    // Called when the connection closes: drop a stale pairing code and stop any live-state subscription.
     func teardown() async {
         cancelPairingLoop()
         services.onPairingCode(nil, nil)

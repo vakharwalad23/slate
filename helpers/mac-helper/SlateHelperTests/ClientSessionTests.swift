@@ -1,20 +1,27 @@
+import Foundation
 import XCTest
 @testable import SlateHelper
 
 private final class Outbox: @unchecked Sendable {
     private(set) var messages: [Message] = []
     func add(_ message: Message) { messages.append(message) }
+    func last(_ match: (Message) -> Bool) -> Message? { messages.last(where: match) }
 }
 
 private struct OKRunner: ProcessRunning {
     func run(_ launchPath: String, _ args: [String], stdin: String?) async throws -> String { "" }
 }
 
-private func makeServices(code: String = "654321") -> HelperServices {
+private let sessionPairingSecret = Data([UInt8](repeating: 7, count: 15))
+
+private struct HandshakeStalled: Error { let step: String }
+
+private func makeServices() -> HelperServices {
     let tempDir = FileManager.default.temporaryDirectory.appending(path: "slate-test-\(UUID().uuidString)")
     return HelperServices(
         tokenStore: TokenStore(directory: tempDir),
-        pairing: PairingService(makeCode: { code }),
+        pairing: PairingService(makeSecret: { sessionPairingSecret }),
+        identity: IdentityKeyStore(directory: tempDir).identity,
         catalog: AppCatalog(),
         executor: CommandExecutor(runner: OKRunner()),
         capabilities: HelperConfig.capabilities,
@@ -30,9 +37,36 @@ private func feed(_ services: HelperServices, _ messages: [Message]) async -> [M
     let session = ClientSession(services: services)
     let outbox = Outbox()
     for message in messages {
-        await session.handle(message) { outbox.add($0) }
+        await session.handle(message, send: { outbox.add($0) }, close: {})
     }
     return outbox.messages
+}
+
+// Drives the phone side of the pair handshake through a live session, returning the phone's record
+// keys so a test can exchange encrypted app traffic.
+private func pairThroughSession(
+    _ session: ClientSession,
+    _ outbox: Outbox,
+    secret: Data = sessionPairingSecret
+) async throws -> (token: String, records: RecordLayer) {
+    func handle(_ m: Message) async { await session.handle(m, send: { outbox.add($0) }, close: {}) }
+    await handle(.hello(id: "h", reId: nil, deviceId: "dev1", deviceName: "phone", appVersion: "1"))
+    await handle(.pairRequest(id: "pr", reId: nil))
+    let ephemeral = CryptoPrimitives.generateKeyPair()
+    let initiator = PairInitiator(ephemeral: KeyPair(secretKey: ephemeral.secretKey, publicKey: ephemeral.publicKey))
+    await handle(.secHello(id: "sh", reId: nil, mode: "pair", e: initiator.hello(), d: nil))
+    guard case let .secHelloAck(_, _, _, ackE, ackSOptional, _)? = outbox.last({ if case .secHelloAck = $0 { return true }; return false }),
+          let ackS = ackSOptional else {
+        throw HandshakeStalled(step: "sec_hello_ack")
+    }
+    let confirm = try initiator.consumeAck(ackE: ackE, ackS: ackS, secret: secret)
+    await handle(.secConfirm(id: "sc", reId: nil, d: confirm))
+    guard case let .secConfirmAck(_, _, confirmAckD)? = outbox.last({ if case .secConfirmAck = $0 { return true }; return false }) else {
+        throw HandshakeStalled(step: "sec_confirm_ack")
+    }
+    let result = try initiator.finish(confirmAckD: confirmAckD)
+    let records = try RecordLayer(sendKey: result.keys.sendKey, recvKey: result.keys.recvKey)
+    return (result.token, records)
 }
 
 final class ClientSessionTests: XCTestCase {
@@ -56,7 +90,7 @@ final class ClientSessionTests: XCTestCase {
         XCTAssertEqual(t, 7)
     }
 
-    func testCommandBeforeAuthIsUnauthorized() async {
+    func testPlaintextCommandIsUnauthorized() async {
         let replies = await feed(makeServices(), [
             .commandExecute(id: "c", reId: nil, command: .launchApp(app: "Safari")),
         ])
@@ -65,58 +99,48 @@ final class ClientSessionTests: XCTestCase {
         XCTAssertEqual(code, "unauthorized")
     }
 
-    func testPairThenCommandSucceeds() async {
-        let replies = await feed(makeServices(code: "654321"), [
-            .hello(id: "h", reId: nil, deviceId: "dev1", deviceName: "phone", appVersion: "1"),
-            .pairRequest(id: "pr", reId: nil),
-            .pairConfirm(id: "pc", reId: nil, code: "654321"),
-            .commandExecute(id: "c", reId: nil, command: .launchApp(app: "Safari")),
-        ])
-        XCTAssertTrue(replies.contains { if case .pairOk = $0 { return true }; return false })
-        XCTAssertTrue(replies.contains {
-            if case let .commandResult(_, _, ok, _) = $0 { return ok }
-            return false
-        })
-        // pair_request itself produces no reply frame.
-        XCTAssertFalse(replies.contains { if case .pairRequest = $0 { return true }; return false })
-    }
-
-    func testPairConfirmWrongCode() async {
-        let replies = await feed(makeServices(code: "654321"), [
-            .hello(id: "h", reId: nil, deviceId: "dev1", deviceName: "phone", appVersion: "1"),
-            .pairRequest(id: "pr", reId: nil),
-            .pairConfirm(id: "pc", reId: nil, code: "000000"),
-        ])
-        guard case let .pairError(_, _, reason) = replies.last else { return XCTFail("expected pair_error") }
-        XCTAssertEqual(reason, "bad code")
-    }
-
-    func testAuthWithIssuedTokenSucceeds() async {
-        let services = makeServices(code: "654321")
-        let pairReplies = await feed(services, [
-            .hello(id: "h", reId: nil, deviceId: "dev1", deviceName: "phone", appVersion: "1"),
-            .pairRequest(id: "pr", reId: nil),
-            .pairConfirm(id: "pc", reId: nil, code: "654321"),
-        ])
-        var token: String?
-        for reply in pairReplies {
-            if case let .pairOk(_, _, issued) = reply { token = issued }
-        }
-        let unwrapped = try? XCTUnwrap(token)
-        let authReplies = await feed(services, [.auth(id: "a", reId: nil, token: unwrapped ?? "")])
-        guard case let .authOk(_, reId) = authReplies.first else { return XCTFail("expected auth_ok") }
-        XCTAssertEqual(reId, "a")
-    }
-
-    func testAuthInvalidTokenFails() async {
-        let replies = await feed(makeServices(), [.auth(id: "a", reId: nil, token: "nope")])
-        guard case let .authError(_, _, reason) = replies.first else { return XCTFail("expected auth_error") }
-        XCTAssertEqual(reason, "invalid token")
-    }
-
     func testUnknownTypeIsDropped() async {
         let replies = await feed(makeServices(), [.unknown(type: "subscribe.state", id: "x", reId: nil)])
         XCTAssertTrue(replies.isEmpty)
+    }
+
+    func testSecurePairIssuesTokenInChannelAndRunsCommand() async throws {
+        let services = makeServices()
+        let session = ClientSession(services: services)
+        let outbox = Outbox()
+        let paired = try await pairThroughSession(session, outbox)
+        XCTAssertFalse(paired.token.isEmpty)
+
+        // The token must never appear in any plaintext (non-enc, non-sec_confirm_ack) frame.
+        for message in outbox.messages {
+            if case .enc = message { continue }
+            if case .secConfirmAck = message { continue }
+            let json = String(decoding: try encodeMessage(message), as: UTF8.self)
+            XCTAssertFalse(json.contains(paired.token), "token leaked in plaintext: \(json)")
+        }
+
+        let command = try encodeMessage(.commandExecute(id: "c", reId: nil, command: .launchApp(app: "Safari")))
+        await session.handle(.enc(id: "e", reId: nil, c: try paired.records.seal(command)),
+                             send: { outbox.add($0) }, close: {})
+        guard case let .enc(_, _, replyC)? = outbox.last({ if case .enc = $0 { return true }; return false }) else {
+            return XCTFail("expected an enc reply")
+        }
+        // decodeMessage is inbound-only, so assert on the decrypted outbound JSON directly.
+        let replyJson = String(decoding: try paired.records.open(replyC), as: UTF8.self)
+        XCTAssertTrue(replyJson.contains("\"type\":\"command.result\""), replyJson)
+        XCTAssertTrue(replyJson.contains("\"ok\":true"), replyJson)
+    }
+
+    func testSecurePairWrongCodeFailsClosed() async throws {
+        let services = makeServices()
+        let session = ClientSession(services: services)
+        let outbox = Outbox()
+        let wrong = Data([UInt8](repeating: 9, count: 15))
+        _ = try? await pairThroughSession(session, outbox, secret: wrong)
+        guard case let .secError(_, _, code, _)? = outbox.last({ if case .secError = $0 { return true }; return false }) else {
+            return XCTFail("expected sec_error")
+        }
+        XCTAssertEqual(code, "bad_code")
     }
 
     func testHelloDecodesFromWireJSON() {

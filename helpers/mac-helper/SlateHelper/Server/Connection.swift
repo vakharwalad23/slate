@@ -70,9 +70,11 @@ final class Connection: @unchecked Sendable {
             close()
             return
         }
-        await session.handle(message) { [weak self] reply in
+        await session.handle(message, send: { [weak self] reply in
             self?.sendFrame(reply)
-        }
+        }, close: { [weak self] in
+            self?.close()
+        })
     }
 
     private func sendFrame(_ message: Message) {

@@ -7,12 +7,12 @@ private let protocolLabel = "slate/sec/v2/x25519-hkdf-sha256-chacha20poly1305"
 private let kdfInfoMix = "slate/v2/mix"
 private let kdfInfoSplit = "slate/v2/split"
 
-struct RecordKeys {
+struct RecordKeys: Sendable {
     let sendKey: Data
     let recvKey: Data
 }
 
-struct KeyPair {
+struct KeyPair: Sendable {
     let secretKey: Data
     let publicKey: Data
 }
@@ -56,10 +56,10 @@ private final class SymmetricState {
         return pt
     }
 
-    // c2s = okm[0:32] (phone->helper), s2c = okm[32:64]; the responder sends s2c, receives c2s.
-    func split() -> RecordKeys {
+    // c2s = okm[0:32] (phone->helper), s2c = okm[32:64] (helper->phone).
+    func split() -> (c2s: Data, s2c: Data) {
         let okm = CryptoPrimitives.hkdf(ikm: Data(), salt: ck, info: Data(kdfInfoSplit.utf8), length: 64)
-        return RecordKeys(sendKey: Data(okm.suffix(32)), recvKey: Data(okm.prefix(32)))
+        return (Data(okm.prefix(32)), Data(okm.suffix(32)))
     }
 }
 
@@ -97,6 +97,43 @@ final class PairResponder {
     func complete(token: String) throws -> (confirmAck: Data, keys: RecordKeys) {
         let json = Data("{\"token\":\"\(token)\"}".utf8)
         let confirmAck = try ss.encryptAndHash(json)
-        return (confirmAck, ss.split())
+        let keys = ss.split()
+        return (confirmAck, RecordKeys(sendKey: keys.s2c, recvKey: keys.c2s))
+    }
+}
+
+// Phone side, mirror of createPairInitiator. Present so the helper's tests can drive a full pair.
+final class PairInitiator {
+    private let ss = SymmetricState()
+    private let ephemeral: KeyPair
+    private var helperStaticPub: Data?
+
+    init(ephemeral: KeyPair) {
+        self.ephemeral = ephemeral
+        ss.mixHash(Data("pair".utf8))
+        ss.mixHash(ephemeral.publicKey)
+    }
+
+    func hello() -> Data { ephemeral.publicKey }
+
+    func consumeAck(ackE: Data, ackS: Data, secret: Data) throws -> Data {
+        ss.mixHash(ackE)
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: ephemeral.secretKey, publicKey: ackE))
+        let staticPub = try ss.decryptAndHash(ackS)
+        helperStaticPub = staticPub
+        ss.mixKey(try CryptoPrimitives.dh(secretKey: ephemeral.secretKey, publicKey: staticPub))
+        ss.mixKey(CryptoPrimitives.derivePsk(secret: secret))
+        return try ss.encryptAndHash(Data())
+    }
+
+    func finish(confirmAckD: Data) throws -> (token: String, helperStaticPub: Data, keys: RecordKeys) {
+        let tokenBytes = try ss.decryptAndHash(confirmAckD)
+        guard let object = try? JSONSerialization.jsonObject(with: tokenBytes) as? [String: Any],
+              let token = object["token"] as? String,
+              let staticPub = helperStaticPub else {
+            throw SecureChannelError.badHandshake
+        }
+        let keys = ss.split()
+        return (token, staticPub, RecordKeys(sendKey: keys.c2s, recvKey: keys.s2c))
     }
 }

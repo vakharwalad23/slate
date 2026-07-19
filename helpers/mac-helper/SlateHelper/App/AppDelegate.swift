@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let status = AppStatus()
     private let tokenStore = TokenStore()
     private let pairing = PairingService()
+    private let identityStore = IdentityKeyStore()
     private let catalog = AppCatalog()
     private let registry = ConnectionRegistry()
     private let bonjour = BonjourAdvertiser()
@@ -45,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         services = HelperServices(
             tokenStore: tokenStore,
             pairing: pairing,
+            identity: identityStore.identity,
             catalog: catalog,
             executor: CommandExecutor(),
             capabilities: HelperConfig.capabilities,

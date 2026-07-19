@@ -7,9 +7,9 @@ import XCTest
 final class HandshakeTests: XCTestCase {
     private struct Root: Decodable { let handshakePair: HandshakeVector }
     private struct HandshakeVector: Decodable {
-        let ephemeralResponder, staticResponder, staticResponderPublic, secret, token: String
+        let ephemeralInitiator, ephemeralResponder, staticResponder, staticResponderPublic, secret, token: String
         let hello, ackE, ackS, confirm, confirmAck: String
-        let responderSendKey, responderRecvKey: String
+        let initiatorSendKey, initiatorRecvKey, responderSendKey, responderRecvKey: String
     }
 
     private func load() throws -> HandshakeVector {
@@ -59,6 +59,22 @@ final class HandshakeTests: XCTestCase {
         XCTAssertEqual(hexString(complete.confirmAck), v.confirmAck)
         XCTAssertEqual(hexString(complete.keys.sendKey), v.responderSendKey)
         XCTAssertEqual(hexString(complete.keys.recvKey), v.responderRecvKey)
+    }
+
+    func testInitiatorReproducesVector() throws {
+        let v = try load()
+        let initiator = PairInitiator(ephemeral: KeyPair(
+            secretKey: try hex(v.ephemeralInitiator),
+            publicKey: try CryptoPrimitives.x25519PublicKey(secretKey: try hex(v.ephemeralInitiator))
+        ))
+        XCTAssertEqual(hexString(initiator.hello()), v.hello)
+        let confirm = try initiator.consumeAck(ackE: try hex(v.ackE), ackS: try hex(v.ackS), secret: try hex(v.secret))
+        XCTAssertEqual(hexString(confirm), v.confirm)
+        let result = try initiator.finish(confirmAckD: try hex(v.confirmAck))
+        XCTAssertEqual(result.token, v.token)
+        XCTAssertEqual(hexString(result.helperStaticPub), v.staticResponderPublic)
+        XCTAssertEqual(hexString(result.keys.sendKey), v.initiatorSendKey)
+        XCTAssertEqual(hexString(result.keys.recvKey), v.initiatorRecvKey)
     }
 
     func testResponderRejectsTamperedConfirm() throws {

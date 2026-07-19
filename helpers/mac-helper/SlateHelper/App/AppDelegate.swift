@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: WebSocketServer?
     private var netMonitor: NetworkMonitor?
     private var axMonitor: AccessibilityMonitor?
+    private var udp: UDPResponder?
     private var currentPort = HelperConfig.port
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -27,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         netMonitor?.stop()
         axMonitor?.stop()
+        udp?.stop()
         server?.stop()
         bonjour.unregister()
     }
@@ -121,5 +123,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             status.lastError = "\(error)"
             status.log.error("\(error)")
         }
+        udp?.stop()
+        let responder = UDPResponder(name: HelperConfig.name, port: port)
+        responder.start()
+        udp = responder
     }
 }

@@ -7,20 +7,20 @@ pure data-flow/state-diagram doc - say so and this is repurposed.)
 ## Discovery -> connect
 
 ```
-app                         helper
- |  browse _slate._tcp  -->  (advertises via dns-sd)
+app                              helper
+ |  UDP broadcast "SLATE-DISCOVER-v1" (Android)  -->  UDPResponder (BSD dgram socket)
+ |  <-- unicast "SLATE-HELPER-v1\n<port>\n<name>"      (host = reply source)
+ |  browse _slate._tcp (iOS)  -->                 (advertises via dns-sd)
  |  <-- service (host, port)
- |  subnet /24 WS-handshake scan in parallel (reliable path when mDNS is unavailable)
- |  (or user enters host:port manually - always available)
- |  open ws://host:port  -->
- |  hello                -->
- |  <-- hello_ack { capabilities, paired }
+ |  ordered subnet /24 WS-handshake scan in parallel (fallback; gateway-adjacent + last-known first)
+ |  (or user enters host:port / scans the pairing QR - always available)
+ |  open ws://host:port  -->  hello  -->  <-- hello_ack { capabilities, paired }
 ```
 
-Android emulators don't forward multicast and react-native-zeroconf is unavailable on the New Arch
-Android build, so `subnet-scan.ts` (probe every host on the phone's /24 with the WS hello handshake)
-is the primary auto-discovery there; manual entry is the guaranteed fallback. iOS needs the
-local-network permission + `NSBonjourServices`.
+Layered, first hit wins: last-known host -> UDP broadcast (Android, `packages/slate-discovery`; sending
+broadcast + a unicast reply need no MulticastLock) / Bonjour (iOS) -> the ordered subnet sweep
+(`subnet-scan.ts`) -> manual/QR. iOS needs the local-network permission + `NSBonjourServices`; the
+Android UDP module makes discovery a single round trip instead of a 254-host sweep.
 
 ## Pairing (code-authenticated X25519; see security.md)
 

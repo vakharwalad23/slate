@@ -95,6 +95,7 @@ A pnpm monorepo.
 | --- | --- |
 | `apps/mobile` | Expo SDK 56 app (TypeScript) - the deck UI |
 | `packages/protocol` | Shared TS types + JSON Schema - the wire contract |
+| `packages/slate-discovery` | Expo module - Android UDP broadcast discovery |
 | `helpers/mac-helper` | Swift menu-bar helper (the primary macOS backend) |
 | `helpers/node-helper` | Node `ws` MVP helper (proves the loop; `launch_app` only) |
 | `docs/` | Architecture, stack, code-logic, and flow docs |
@@ -185,8 +186,8 @@ Open the app. It auto-discovers the helper (or enter host:port manually), then t
 QR shown in the Mac menu (or type the code under it). Add buttons, pick an action and icon, and tap to
 run them on the Mac.
 
-Auto-discovery usually finds the Mac on its own; if it ever misses, type the IP shown in the Mac
-menu-bar helper into the host box (faster UDP-broadcast discovery is on the way).
+Auto-discovery usually finds the Mac on its own (Android uses a UDP broadcast that answers in one
+round trip); if it ever misses, type the IP shown in the Mac menu-bar helper into the host box.
 
 ## Security
 
@@ -216,8 +217,8 @@ comments, and docs are ASCII-only.
 
 Next up, in priority order:
 
-- **Faster discovery.** A UDP broadcast fast path on Android plus Bonjour on iOS, so the Mac is found
-  in well under a second before falling back to the subnet scan.
+- **Faster iOS discovery.** Android now finds the Mac via a UDP broadcast fast path; a native
+  `NWBrowser` leg for iOS is the remaining piece before the subnet scan becomes a rare fallback.
 - **Distribution and polish.** Notarizing the macOS DMG (it is self-signed today), plus first-run
   onboarding and accessibility passes.
 

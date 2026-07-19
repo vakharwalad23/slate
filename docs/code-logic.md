@@ -60,9 +60,10 @@ carries an optional `autoProfile.matchBundleId` for live-state deck auto-switchi
 `GestureMapSchema` adds `longPress`, `doubleTap`, `swipeUp/Down/Left/Right` as optional `Command`
 fields per button. `apps.slice.ts` drives `apps.list` and `apps.icon` requests and holds
 the icon cache keyed by `bundleId + iconVersion`. `discovery.slice.ts` (gated to the discovery UI)
-runs an mDNS browse (`zeroconf.ts`, instant where the native module works) alongside a `/24` subnet
-WS-handshake scan (`subnet-scan.ts`, the reliable path since react-native-zeroconf is unavailable on
-the New Arch Android build); results dedupe by host. `logs.slice.ts` is a bounded ring buffer
+runs, in parallel and deduped by host: a last-known-host probe, a UDP broadcast probe on Android
+(`slate-discovery`, answered by the helper's `UDPResponder` - one round trip, no MulticastLock), an
+mDNS browse (`zeroconf.ts`, iOS), and an ordered `/24` subnet WS-handshake scan (`subnet-scan.ts`,
+gateway-adjacent + last-known first) as the guaranteed fallback. `logs.slice.ts` is a bounded ring buffer
 of errors/warnings (command failures, auth errors, pair errors, discovery failures); shown in
 `app/logs.tsx`, linked from the connect screen. The import edge is always store -> transport,
 never reversed.
@@ -98,7 +99,9 @@ handshake -> `Crypto/*`, and once secure, `enc` frames are opened and the inner 
 before the handshake; after it, any non-`enc` frame closes the socket.
 
 **Discovery/** - `BonjourAdvertiser` calls the dns-sd C API (`DNSServiceRegister`) directly to
-advertise `_slate._tcp`. `NWListener.Service` is avoided due to FB14321888.
+advertise `_slate._tcp` (`NWListener.Service` is avoided due to FB14321888); `UDPResponder` binds a
+BSD datagram socket on the server port and answers the phone's UDP broadcast probe with its name +
+port, for fast Android discovery without mDNS.
 
 **Commands/** - `CommandExecutor` maps `Command` kinds to macOS actions: `launch_app` via
 `open -a` then `-b` fallback; `activate_app` via `NSRunningApplication` + frontmost-verify + retry

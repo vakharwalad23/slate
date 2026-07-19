@@ -57,6 +57,7 @@ export const createDiscoverySlice: StateCreator<RootState, [], [], DiscoverySlic
           if (gen === scanGeneration) addFound(name, host, SCAN_PORT);
         },
         () => gen !== scanGeneration,
+        known.length > 0 ? known : undefined,
       )
         .then((scanned) => {
           if (!scanned && gen === scanGeneration) {

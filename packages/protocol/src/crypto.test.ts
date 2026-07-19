@@ -14,6 +14,7 @@ import {
   utf8Encode,
 } from './crypto/bytes';
 import { SecureChannelError } from './crypto/errors';
+import { createPairInitiator, createPairResponder } from './crypto/handshake';
 import {
   aeadOpen,
   aeadSeal,
@@ -50,7 +51,29 @@ type Vectors = {
     recvKey: string;
     frames: { plaintext: string; sealed: string }[];
   };
+  handshakePair: {
+    ephemeralInitiator: string;
+    ephemeralResponder: string;
+    staticResponder: string;
+    staticResponderPublic: string;
+    secret: string;
+    token: string;
+    hello: string;
+    ackE: string;
+    ackS: string;
+    confirm: string;
+    confirmAck: string;
+    initiatorSendKey: string;
+    initiatorRecvKey: string;
+    responderSendKey: string;
+    responderRecvKey: string;
+  };
 };
+
+function pairKeyPair(secretHex: string): { secretKey: Uint8Array; publicKey: Uint8Array } {
+  const secretKey = fromHex(secretHex);
+  return { secretKey, publicKey: x25519PublicKey(secretKey) };
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const vectors = JSON.parse(
@@ -148,6 +171,46 @@ test('dh rejects an all-zero peer key', () => {
     () => dh(scalar, new Uint8Array(32)),
     (e) => e instanceof SecureChannelError && e.code === 'bad_public_key',
   );
+});
+
+test('pair handshake reproduces the vector transcript and keys', () => {
+  const v = vectors.handshakePair;
+  const initiator = createPairInitiator(pairKeyPair(v.ephemeralInitiator));
+  const responder = createPairResponder({
+    ephemeral: pairKeyPair(v.ephemeralResponder),
+    staticKey: pairKeyPair(v.staticResponder),
+    secret: fromHex(v.secret),
+  });
+  const hello = initiator.hello();
+  assert.equal(toHex(hello), v.hello);
+  const ack = responder.respond(hello);
+  assert.equal(toHex(ack.e), v.ackE);
+  assert.equal(toHex(ack.s), v.ackS);
+  const confirm = initiator.consumeAck(ack.e, ack.s, fromHex(v.secret));
+  assert.equal(toHex(confirm), v.confirm);
+  assert.equal(responder.confirm(confirm), true);
+  const complete = responder.complete(v.token);
+  assert.equal(toHex(complete.confirmAck), v.confirmAck);
+  const result = initiator.finish(complete.confirmAck);
+  assert.equal(result.token, v.token);
+  assert.equal(toHex(result.helperStaticPub), v.staticResponderPublic);
+  // Initiator send == responder recv per direction: a full encrypted round-trip works.
+  assert.equal(toHex(result.sendKey), toHex(complete.recvKey));
+  assert.equal(toHex(result.recvKey), toHex(complete.sendKey));
+});
+
+test('pair handshake fails closed on the wrong secret', () => {
+  const v = vectors.handshakePair;
+  const initiator = createPairInitiator(pairKeyPair(v.ephemeralInitiator));
+  const responder = createPairResponder({
+    ephemeral: pairKeyPair(v.ephemeralResponder),
+    staticKey: pairKeyPair(v.staticResponder),
+    secret: fromHex(v.secret),
+  });
+  const ack = responder.respond(initiator.hello());
+  // Phone typed a different code: its psk diverges, so the helper cannot open the confirm.
+  const wrong = initiator.consumeAck(ack.e, ack.s, fromHex('deadbeefdeadbeef'));
+  assert.equal(responder.confirm(wrong), false);
 });
 
 test('base64 and utf8 codecs round-trip', () => {

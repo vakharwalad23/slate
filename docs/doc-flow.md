@@ -22,25 +22,35 @@ Android build, so `subnet-scan.ts` (probe every host on the phone's /24 with the
 is the primary auto-discovery there; manual entry is the guaranteed fallback. iOS needs the
 local-network permission + `NSBonjourServices`.
 
-## Pairing
+## Pairing (code-authenticated X25519; see security.md)
 
 ```
-app                         helper
- |  pair_request         -->  shows 6-digit code (TTL <=120s, rate-limited)
- |  <-- pair_pending { expiresInMs }   (time left only; phone shows a matching countdown)
- |       ...on TTL expiry the helper auto-mints a new code + pushes pair_pending again
- |  pair_confirm { code }-->
- |  <-- pair_ok { token }     (token stored in expo-secure-store)
+app                             helper
+ |  pair_request           -->   shows QR + code (TTL <=120s, rate-limited)
+ |  <-- pair_pending { expiresInMs }     (time left only; phone shows a countdown)
+ |  sec_hello { e }        -->                (e = phone ephemeral)
+ |  <-- sec_hello_ack { e, s }            (s = helper static key, encrypted)
+ |  sec_confirm { d }      -->   opens d with the code (psk); wrong -> sec_error{bad_code}
+ |  <-- sec_confirm_ack { d }             (token issued INSIDE the encrypted channel)
+ |  ...phone pins the helper static key + stores the token; channel is now secure
 ```
 
-## Command execute
+## Command execute (inside the encrypted channel)
 
 ```
-app                         helper
+app                             helper
  |  build semantic Command
- |  auth { token }       -->  <-- auth_ok
- |  command.execute(Cmd) -->  executor maps Cmd -> macOS action
- |  <-- command.result { ok, error? }
+ |  enc(command.execute(Cmd)) -->  open -> executor maps Cmd -> macOS action
+ |  <-- enc(command.result { ok, error? })
+```
+
+## Reconnect (codeless; NK handshake to the pinned key)
+
+```
+app                             helper
+ |  sec_hello { e, d }     -->   d encrypted to the pinned static; mismatch -> sec_error{bad_handshake}
+ |  <-- sec_hello_ack { e, d }            (both derive session keys)
+ |  enc(auth { token })    -->   <-- enc(auth_ok)   (or auth_error if revoked)
 ```
 
 ## Icon fetch + cache
@@ -86,10 +96,10 @@ app: receives close, enters reconnect path -> auth fails -> enters needs_pairing
 
 ```
 app                         helper
- |  (after auth_ok or pair_ok, gated on capabilities.liveState)
- |  subscribe.state { topics: ["foregroundApp"] }  -->
+ |  (once paired/authed, inside enc, gated on capabilities.liveState)
+ |  enc(subscribe.state { topics: ["foregroundApp"] })  -->
  |                          ForegroundMonitor starts; pushes current frontmost immediately
- |  <-- state.update { topic: "foregroundApp", value: bundleId }
+ |  <-- enc(state.update { topic: "foregroundApp", value: bundleId })
  |  setForegroundApp(bundleId)
  |  if a deck's autoProfile.matchBundleId matches -> switch to that deck
  |       ...repeated on every NSWorkspace app-activation notification

@@ -34,10 +34,10 @@ reconnect misses, `lib/discovery/rediscovery.ts` browses for that service name a
 a new IP (network-change auto re-sync). Exactly one socket and one browse are kept live at any
 time; generation/desired invariants guard against races during the switchover.
 
-**Security boundary (ws://):** WSS/TLS cert-pinning is not implemented - RN's built-in WebSocket
-lacks TLS-trust customization (a custom native module would be required). ws:// stays; the security
-boundary is the pairing/auth gate (no unpaired device connects, no device executes commands without
-auth). This is a trusted-LAN-only limitation.
+**Security (app-layer E2E over ws://):** the transport stays `ws://`, but after a code-authenticated
+X25519 handshake all traffic is sealed inside `enc` frames (ChaCha20-Poly1305). WSS/TLS is not used
+(RN's WebSocket exposes no TLS-trust hooks); the channel encryption plus the pinned helper identity
+are the security boundary, so slate is safe on untrusted LANs. Full spec: `docs/security.md`.
 
 ## App state - `apps/mobile/src/stores`
 
@@ -51,7 +51,8 @@ deck whose `autoProfile.matchBundleId` matches. The slice also stores and persis
 (Bonjour service name) set when connecting via discovery, and passes it to `connect()` to enable
 network-change rediscovery. `pairing.slice.ts` runs an 8-phase `AuthPhase` state machine
 (idle / authenticating / needs_pairing / code_entry / confirming / paired / auth_error /
-pair_error); calls `subscribeLiveState()` on both `auth_ok` and `pair_ok`. `deck.slice.ts` holds
+pair_error); calls `subscribeLiveState()` when a pairing (`onSecure`) or a reconnect (`auth_ok`)
+completes. `deck.slice.ts` holds
 the Zod-validated deck model (CRUD, persisted, validated on rehydration via `merge`); actions:
 `addDeck` / `renameDeck` / `setDeckAutoProfile` / `deleteDeck` (last deck protected) /
 `addPage` / `deletePage` (last page protected) / `reorderPage` / `reorderButton`. `DeckSchema`
@@ -90,10 +91,11 @@ package manually; diff on every protocol change.
 `Connection` (class, serialized receive loop) handles one peer. `ConnectionRegistry` (actor) enforces
 a SINGLE active connection - a new connection replaces and closes the prior one.
 
-**Dispatch/** - `ClientSession` (actor) owns per-connection auth state and routes inbound messages:
-`hello` -> `hello_ack`, `ping` -> `pong`, `pair_request`/`pair_confirm` -> `PairingService`,
-`auth` -> `TokenStore`, `command.execute`/`apps.list`/`apps.icon` gated via `AuthGate` (blocked
-pre-auth; `ping` is allowed before auth).
+**Dispatch/** - `ClientSession` (actor) owns per-connection phase (plaintext / pairing / secure) and
+routes inbound messages: `hello` -> `hello_ack`, `pair_request` -> `PairingService`, the `sec_*`
+handshake -> `Crypto/*`, and once secure, `enc` frames are opened and the inner `auth` / `command.execute`
+/ `apps.*` are dispatched (auth-gated via `requireAuth`) and replies re-sealed. `ping` is allowed
+before the handshake; after it, any non-`enc` frame closes the socket.
 
 **Discovery/** - `BonjourAdvertiser` calls the dns-sd C API (`DNSServiceRegister`) directly to
 advertise `_slate._tcp`. `NWListener.Service` is avoided due to FB14321888.
@@ -113,13 +115,18 @@ All Accessibility-gated kinds return `PermissionProbe.notGrantedMessage` when no
 `ProcessRunner` is injectable for unit tests. `AppActivator.swift` isolates the Tahoe-specific
 retry logic.
 
-**Auth/** - `PairingService` (actor) generates a 6-digit code (TTL <=120 s). Lockout is
-actor-level: `totalFailures` + exponential `lockedUntil` cannot be reset by opening a new
-connection. An unexpired code is reused on repeat `pair_request` rather than rerolled.
-`scripts/brute-force-pairing.test.mjs` validates the lockout. `TokenStore` (actor) stores a
-32-byte token as 0600 JSON in Application Support; per-device revoke calls
-`ConnectionRegistry.closeIfDevice` to force-drop the live socket immediately. `AuthGate` checks
-the per-session authed flag before routing commands.
+**Auth/** - `PairingService` (actor) generates a high-entropy pairing secret (120-bit, TTL <=120 s);
+the crypto checks it (a wrong code fails to decrypt), and `recordFailure`/`recordSuccess` drive the
+lockout. Lockout is actor-level: `totalFailures` + exponential `lockedUntil` cannot be reset by
+opening a new connection. An unexpired secret is reused on repeat `pair_request` rather than rerolled.
+`scripts/brute-force-pairing.test.mjs` drives the real handshake with wrong secrets to validate it.
+`TokenStore` (actor) stores a 32-byte token as 0600 JSON in Application Support; per-device revoke
+calls `ConnectionRegistry.closeIfDevice` to force-drop the live socket immediately.
+
+**Crypto/** - `IdentityKeyStore` (0600 `identity.json`) holds the helper's static Curve25519 key;
+`Handshake` runs the pair (NX+psk) and reconnect (NK) responder; `RecordLayer` seals/opens `enc`
+frames. Mirrors `packages/protocol/src/crypto/*`, pinned by `crypto-vectors.json`. See
+[`security.md`](security.md).
 
 **Apps/** - `AppEnumerator` scans `/Applications` and standard app directories. `AppCatalog` (actor)
 caches the enumeration result.
@@ -149,22 +156,24 @@ users clear quarantine with `xattr -dr com.apple.quarantine`.
 
 ## Pairing & auth
 
-`pair_request` -> helper shows 6-digit code (TTL <=120 s, brute-force-resistant lockout) -> app
-sends `pair_confirm { code }` -> helper replies `pair_ok { token }`. The lockout is actor-level
+`pair_request` -> helper shows a QR + high-entropy code (TTL <=120 s, brute-force lockout) -> phone
+scans or types it and runs the pair handshake (`sec_hello` / `sec_hello_ack` / `sec_confirm` /
+`sec_confirm_ack`). The code is mixed in as the psk, so a wrong code fails to decrypt
+(`sec_error { bad_code }`, counted to the lockout); the token is issued *inside* `sec_confirm_ack`
+(never a plaintext frame) and the phone pins the helper's static key. The lockout is actor-level
 (`totalFailures` + exponential `lockedUntil`); spamming from a new connection cannot reset it; an
 unexpired code is reused rather than rerolled. While a code is shown the helper pushes `pair_pending`
-(remaining time only, never the code) so the phone shows a matching countdown; on TTL expiry the
-helper auto-mints a new code and pushes a fresh `pair_pending`, rotating the code without user action. On every subsequent reconnect the app sends
-`auth { token }` -> `auth_ok` before any command. No `command.execute`, `apps.list`, or
-`apps.icon` is processed before `auth_ok` (`AuthGate` on the Swift side, `authPhase === 'paired'`
-gate in `connection.slice.ts` on the mobile side). Token stored in `expo-secure-store`
-(`lib/secure/token-store.ts`) with a stable `deviceId`; in-memory cache avoids repeated keychain
-reads. Per-device revoke on the helper via `TokenStore` force-drops the live socket immediately via
-`ConnectionRegistry.closeIfDevice`.
+(remaining time only). On reconnect the phone runs the codeless NK handshake against the pinned key,
+then sends `auth { token }` inside the encrypted channel -> `auth_ok` before any command. No
+`command.execute`, `apps.list`, or `apps.icon` runs before auth (`requireAuth` on the Swift side,
+`authPhase === 'paired'` on the mobile side). Post-handshake the helper accepts only `enc` and closes
+on any plaintext, replay, or decrypt failure. Token + pinned key in `expo-secure-store`
+(`lib/secure/token-store.ts`) with a stable `deviceId`; per-device revoke force-drops the live socket
+via `ConnectionRegistry.closeIfDevice`.
 
-Transport uses ws:// (not wss://); TLS cert-pinning is not implemented (RN's WebSocket API lacks
-TLS-trust hooks). The security boundary is the pairing/auth gate on both sides. This is a
-trusted-LAN-only design.
+Transport is `ws://` (not `wss://`) but every frame is app-layer encrypted, so this is not a
+trusted-LAN-only design; TLS is unnecessary and RN's WebSocket exposes no TLS-trust hooks anyway.
+Full spec: `docs/security.md`.
 
 ## Icon cache
 

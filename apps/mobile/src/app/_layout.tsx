@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Toaster } from '@/components/Toaster';
+import { assertRng } from '@/lib/secure/crypto/rng';
 import { readOrCreateDeviceId } from '@/lib/secure/token-store';
 import { setDeviceId } from '@/lib/ws';
 import { useStore } from '@/stores/store';
@@ -26,6 +27,14 @@ export default function RootLayout() {
   useEffect(() => {
     let active = true;
     void (async () => {
+      try {
+        assertRng();
+      } catch (e) {
+        // Fail closed: a dead CSPRNG must never reach key generation. bootstrapped stays false, so
+        // the Connect UI never enables.
+        console.warn('slate: CSPRNG self-check failed, refusing to connect', e);
+        return;
+      }
       const id = await readOrCreateDeviceId();
       if (!active) return;
       setDeviceId(id);

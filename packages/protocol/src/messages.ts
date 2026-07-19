@@ -21,7 +21,6 @@ export const HelloMessage = msg(
   z.object({ deviceId: z.string(), deviceName: z.string(), appVersion: z.string() }),
 );
 export const PairRequestMessage = msg('pair_request', z.object({}));
-export const PairConfirmMessage = msg('pair_confirm', z.object({ code: z.string() }));
 export const AuthMessage = msg('auth', z.object({ token: z.string() }));
 export const CommandExecuteMessage = msg('command.execute', CommandSchema);
 export const AppsListMessage = msg('apps.list', z.object({}));
@@ -54,7 +53,6 @@ export const HelloAckMessage = msg(
     paired: z.boolean(),
   }),
 );
-export const PairOkMessage = msg('pair_ok', z.object({ token: z.string() }));
 export const PairErrorMessage = msg('pair_error', z.object({ reason: z.string() }));
 // Time left on the displayed code so the app countdown matches the helper; never carries the code itself.
 export const PairPendingMessage = msg('pair_pending', z.object({ expiresInMs: z.number() }));
@@ -101,7 +99,6 @@ export const EncMessage = msg('enc', z.object({ c: z.base64() }));
 export const MessageSchema = z.discriminatedUnion('type', [
   HelloMessage,
   PairRequestMessage,
-  PairConfirmMessage,
   AuthMessage,
   CommandExecuteMessage,
   AppsListMessage,
@@ -111,7 +108,6 @@ export const MessageSchema = z.discriminatedUnion('type', [
   SecHelloMessage,
   SecConfirmMessage,
   HelloAckMessage,
-  PairOkMessage,
   PairErrorMessage,
   PairPendingMessage,
   AuthOkMessage,

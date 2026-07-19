@@ -3,12 +3,20 @@ export {
   appsListMessage,
   authMessage,
   commandExecuteMessage,
+  encMessage,
   helloMessage,
-  pairConfirmMessage,
   pairRequestMessage,
   pingMessage,
+  secConfirmMessage,
+  secHelloPairMessage,
   setDeviceId,
   subscribeStateMessage,
 } from './messages';
-export type { Status, Transport, TransportHandlers } from './transport';
+export type {
+  SecureResult,
+  SecureStartOptions,
+  Status,
+  Transport,
+  TransportHandlers,
+} from './transport';
 export { webSocketTransport } from './websocket-transport';

@@ -128,56 +128,6 @@
         },
         "type": {
           "type": "string",
-          "const": "pair_confirm"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "code": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "code"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "v",
-        "id",
-        "reId",
-        "type",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "v": {
-          "type": "number",
-          "const": 2
-        },
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-        },
-        "reId": {
-          "anyOf": [
-            {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "type": {
-          "type": "string",
           "const": "auth"
         },
         "payload": {
@@ -1106,56 +1056,6 @@
             "helperVersion",
             "capabilities",
             "paired"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "v",
-        "id",
-        "reId",
-        "type",
-        "payload"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "v": {
-          "type": "number",
-          "const": 2
-        },
-        "id": {
-          "type": "string",
-          "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-        },
-        "reId": {
-          "anyOf": [
-            {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "type": {
-          "type": "string",
-          "const": "pair_ok"
-        },
-        "payload": {
-          "type": "object",
-          "properties": {
-            "token": {
-              "type": "string"
-            }
-          },
-          "required": [
-            "token"
           ],
           "additionalProperties": false
         }

@@ -64,6 +64,8 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         get().onSocketDown();
       }
     },
+    onSecure: (result) => get().onSecure(result),
+    onSecureError: (code) => get().onSecureError(code),
     onMessage: (message) => {
       switch (message.type) {
         case 'hello_ack':
@@ -86,7 +88,6 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         }
         case 'auth_ok':
         case 'auth_error':
-        case 'pair_ok':
         case 'pair_error':
           get().onAuthMessage(message);
           break;

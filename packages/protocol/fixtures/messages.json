@@ -27,18 +27,6 @@
       }
     },
     {
-      "name": "pair_confirm",
-      "frame": {
-        "v": 2,
-        "id": "33333333-3333-4333-8333-333333333333",
-        "reId": null,
-        "type": "pair_confirm",
-        "payload": {
-          "code": "123456"
-        }
-      }
-    },
-    {
       "name": "auth",
       "frame": {
         "v": 2,
@@ -332,18 +320,6 @@
             "liveState": false
           },
           "paired": false
-        }
-      }
-    },
-    {
-      "name": "pair_ok",
-      "frame": {
-        "v": 2,
-        "id": "e2222222-2222-4222-8222-222222222222",
-        "reId": "12345678-1234-4234-8234-123456789abc",
-        "type": "pair_ok",
-        "payload": {
-          "token": "tok-xyz"
         }
       }
     },

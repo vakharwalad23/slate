@@ -74,15 +74,16 @@ export default function PairingScreen() {
             Enter the code
           </Text>
           <Text variant="body" tone="secondary" style={styles.center}>
-            Type the 6-digit code shown on {helperName}.
+            Type the code shown under the QR on {helperName}.
           </Text>
           <TextField
             style={styles.codeInput}
             value={code}
-            onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="000000"
+            onChangeText={setCode}
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={40}
+            placeholder="paste or type the code"
             autoFocus
           />
           {pairExpiresAt !== null ? (
@@ -93,7 +94,7 @@ export default function PairingScreen() {
           <Button
             title="Confirm"
             onPress={() => submitCode(code)}
-            disabled={code.length !== 6}
+            disabled={code.trim().length < 16}
             style={styles.fullWidth}
           />
         </Surface>
@@ -115,7 +116,7 @@ export default function PairingScreen() {
           </Text>
         ) : null}
         <Text variant="body" tone="secondary" style={styles.center}>
-          You will enter the 6-digit code shown on your Mac.
+          You will enter the pairing code shown under the QR on your Mac.
         </Text>
         <Button title="Pair" onPress={beginPairing} style={styles.fullWidth} />
       </Surface>
@@ -137,10 +138,9 @@ const styles = StyleSheet.create({
   codeInput: {
     width: '100%',
     textAlign: 'center',
-    fontSize: fontSize.xxl,
-    letterSpacing: 12,
+    fontSize: fontSize.lg,
+    letterSpacing: 2,
     paddingVertical: spacing.lg,
-    fontVariant: ['tabular-nums'],
   },
   tabular: { fontVariant: ['tabular-nums'] },
 });

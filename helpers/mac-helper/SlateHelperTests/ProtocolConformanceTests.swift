@@ -74,7 +74,6 @@ final class ProtocolConformanceTests: XCTestCase {
         // Keyed by fixture name (not type) so both sec_hello_ack modes get their own shape check.
         let byName: [String: Message] = [
             "hello_ack": .helloAck(id: "id", reId: "re", helperName: "slate", helperVersion: "0.1.0", capabilities: capabilities, paired: false),
-            "pair_ok": .pairOk(id: "id", reId: "re", token: "t"),
             "pair_error": .pairError(id: "id", reId: "re", reason: "bad code"),
             "pair_pending": .pairPending(id: "id", reId: "re", expiresInMs: 1000),
             "auth_ok": .authOk(id: "id", reId: "re"),

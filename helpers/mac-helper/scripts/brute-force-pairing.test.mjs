@@ -1,19 +1,30 @@
-// Brute-force regression test for pairing. Run against a FRESHLY launched helper on loopback
-// (lockout state is in-memory and resets on relaunch): `node helpers/mac-helper/scripts/brute-force-pairing.test.mjs`.
-// Node 24 global WebSocket, zero deps. Proves: the lockout is reached, CANNOT be reset by spamming
-// pair_request, and is global across connections.
-import { randomUUID } from 'node:crypto';
+// Brute-force regression for the v2 pairing. Run against a FRESHLY launched helper on loopback
+// (lockout state is in-memory and resets on relaunch):
+//   node --import tsx helpers/mac-helper/scripts/brute-force-pairing.test.mjs
+// Drives the real X25519 handshake with random WRONG secrets and proves: the 5-strike lockout is
+// reached, CANNOT be reset by spamming pair_request, and is global across connections. Node 24 global
+// WebSocket; the crypto comes from @slate/protocol so it exercises the exact wire contract.
+import { randomBytes, randomUUID } from 'node:crypto';
+// Relative import of the protocol crypto source: this standalone script has no package.json to
+// resolve the @slate/protocol workspace alias. tsx compiles the .ts on the fly.
+import {
+  createPairInitiator,
+  fromBase64,
+  generateKeyPair,
+  toBase64,
+} from '../../../packages/protocol/src/crypto/index.ts';
 
 const URL = 'ws://127.0.0.1:8765';
-const WRONG = '000000';
+const PROTOCOL_VERSION = 2;
 const LOCK_THRESHOLD = 5; // must match the helper's default
-const PROTOCOL_VERSION = 1;
 
 let failures = 0;
 function check(label, cond) {
   console.log(`${cond ? 'ok  ' : 'FAIL'} ${label}`);
   if (!cond) failures += 1;
 }
+
+const rng = (n) => new Uint8Array(randomBytes(n));
 
 function connect() {
   return new Promise((resolve, reject) => {
@@ -41,7 +52,6 @@ function connect() {
           ws.send(JSON.stringify({ v: PROTOCOL_VERSION, id, reId: null, type, payload }));
           return id;
         },
-        // Resolves the reply correlated to a sent id; null on timeout (e.g. pair_request happy path).
         reply: (id, timeoutMs = 1500) =>
           new Promise((res) => {
             const timer = setTimeout(() => {
@@ -56,31 +66,40 @@ function connect() {
   });
 }
 
-const locked = (reply) => reply?.type === 'pair_error' && reply.payload.reason === 'locked';
+// One full handshake with a random wrong secret; returns the resulting sec_error code (or the reply
+// type). pair_request first so a code is active; its pair_pending push (reId null) is ignored.
+async function attemptWrong(conn) {
+  conn.send('pair_request', {});
+  const initiator = createPairInitiator(generateKeyPair(rng));
+  const ack = await conn.reply(conn.send('sec_hello', { mode: 'pair', e: toBase64(initiator.hello()) }));
+  if (ack?.type === 'sec_error') return ack.payload.code;
+  if (ack?.type !== 'sec_hello_ack') return ack?.type ?? 'none';
+  const confirm = initiator.consumeAck(fromBase64(ack.payload.e), fromBase64(ack.payload.s), rng(15));
+  const res = await conn.reply(conn.send('sec_confirm', { d: toBase64(confirm) }));
+  return res?.type === 'sec_error' ? res.payload.code : (res?.type ?? 'none');
+}
 
 const main = async () => {
   const a = await connect();
   await a.reply(a.send('hello', { deviceId: randomUUID(), deviceName: 'attacker', appVersion: '0' }));
 
-  // Phase A: reach the lockout with one code and threshold wrong confirms.
-  a.send('pair_request', {});
+  // Phase A: reach the lockout with threshold wrong secrets.
   let last = null;
-  for (let i = 0; i < LOCK_THRESHOLD; i += 1) {
-    last = await a.reply(a.send('pair_confirm', { code: WRONG }));
-  }
-  check(`locked after ${LOCK_THRESHOLD} wrong confirms`, locked(last));
+  for (let i = 0; i < LOCK_THRESHOLD; i += 1) last = await attemptWrong(a);
+  check(`locked after ${LOCK_THRESHOLD} wrong secrets`, last === 'locked');
 
   // Phase B: the regression - pair_request must NOT reset the lockout.
   const reqReply = await a.reply(a.send('pair_request', {}));
-  check('pair_request during lockout -> pair_error{locked}', locked(reqReply));
-  const confirmReply = await a.reply(a.send('pair_confirm', { code: WRONG }));
-  check('confirm after pair_request stays locked (not "bad code")', locked(confirmReply));
+  check(
+    'pair_request during lockout -> pair_error{locked}',
+    reqReply?.type === 'pair_error' && reqReply.payload.reason === 'locked',
+  );
+  check('attempt after pair_request stays locked (not bad_code)', (await attemptWrong(a)) === 'locked');
 
   // Phase C: lockout is global across connections.
   const b = await connect();
   await b.reply(b.send('hello', { deviceId: randomUUID(), deviceName: 'attacker2', appVersion: '0' }));
-  const bReply = await b.reply(b.send('pair_request', {}));
-  check('second connection also locked (global)', locked(bReply));
+  check('second connection also locked (global)', (await attemptWrong(b)) === 'locked');
 
   a.close();
   b.close();

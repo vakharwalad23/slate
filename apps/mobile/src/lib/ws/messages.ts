@@ -48,14 +48,28 @@ export function pairRequestMessage(): MessageOf<'pair_request'> {
   };
 }
 
-export function pairConfirmMessage(code: string): MessageOf<'pair_confirm'> {
+export function secHelloPairMessage(e: string): MessageOf<'sec_hello'> {
   return {
     v: PROTOCOL_VERSION,
     id: Crypto.randomUUID(),
     reId: null,
-    type: 'pair_confirm',
-    payload: { code },
+    type: 'sec_hello',
+    payload: { mode: 'pair', e },
   };
+}
+
+export function secConfirmMessage(d: string): MessageOf<'sec_confirm'> {
+  return {
+    v: PROTOCOL_VERSION,
+    id: Crypto.randomUUID(),
+    reId: null,
+    type: 'sec_confirm',
+    payload: { d },
+  };
+}
+
+export function encMessage(c: string): MessageOf<'enc'> {
+  return { v: PROTOCOL_VERSION, id: Crypto.randomUUID(), reId: null, type: 'enc', payload: { c } };
 }
 
 export function authMessage(token: string): MessageOf<'auth'> {

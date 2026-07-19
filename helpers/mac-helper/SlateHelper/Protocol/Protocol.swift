@@ -138,7 +138,6 @@ enum Message: Sendable {
     // app -> helper
     case hello(id: String, reId: String?, deviceId: String, deviceName: String, appVersion: String)
     case pairRequest(id: String, reId: String?)
-    case pairConfirm(id: String, reId: String?, code: String)
     case auth(id: String, reId: String?, token: String)
     case commandExecute(id: String, reId: String?, command: Command)
     case appsList(id: String, reId: String?)
@@ -153,7 +152,6 @@ enum Message: Sendable {
     case legacyHello(id: String)
     // helper -> app
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
-    case pairOk(id: String, reId: String?, token: String)
     case pairError(id: String, reId: String?, reason: String)
     case pairPending(id: String, reId: String?, expiresInMs: Double)
     case authOk(id: String, reId: String?)

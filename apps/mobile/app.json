@@ -2,7 +2,7 @@
   "expo": {
     "name": "slate",
     "slug": "slate",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "slate",
     "orientation": "default",
     "icon": "./assets/icon.png",

@@ -66,8 +66,7 @@ function connect() {
   });
 }
 
-// One full handshake with a random wrong secret; returns the resulting sec_error code (or the reply
-// type). pair_request first so a code is active; its pair_pending push (reId null) is ignored.
+// pair_request first so a code is active; its pair_pending push (reId null) is ignored.
 async function attemptWrong(conn) {
   conn.send('pair_request', {});
   const initiator = createPairInitiator(generateKeyPair(rng));
@@ -83,7 +82,6 @@ const main = async () => {
   const a = await connect();
   await a.reply(a.send('hello', { deviceId: randomUUID(), deviceName: 'attacker', appVersion: '0' }));
 
-  // Phase A: reach the lockout with threshold wrong secrets.
   let last = null;
   for (let i = 0; i < LOCK_THRESHOLD; i += 1) last = await attemptWrong(a);
   check(`locked after ${LOCK_THRESHOLD} wrong secrets`, last === 'locked');
@@ -96,7 +94,6 @@ const main = async () => {
   );
   check('attempt after pair_request stays locked (not bad_code)', (await attemptWrong(a)) === 'locked');
 
-  // Phase C: lockout is global across connections.
   const b = await connect();
   await b.reply(b.send('hello', { deviceId: randomUUID(), deviceName: 'attacker2', appVersion: '0' }));
   check('second connection also locked (global)', (await attemptWrong(b)) === 'locked');

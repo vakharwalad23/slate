@@ -57,8 +57,6 @@ function stopRediscovery(): void {
   }
 }
 
-// Start exactly one browse to follow the helper to a new address. No-ops if one is live, if we have no
-// name to match, if we don't want to connect, or if a socket is already open.
 function beginRediscovery(gen: number): void {
   if (gen !== generation || desired !== 'connected') return;
   if (rediscovery !== null || helperName === null) return;

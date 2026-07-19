@@ -44,8 +44,6 @@ private func feed(_ services: HelperServices, _ messages: [Message]) async -> [M
     return outbox.messages
 }
 
-// Drives the phone side of the pair handshake through a live session, returning the phone's record
-// keys so a test can exchange encrypted app traffic.
 private func pairThroughSession(
     _ session: ClientSession,
     _ outbox: Outbox,
@@ -150,7 +148,6 @@ final class ClientSessionTests: XCTestCase {
         // Pair first so the device is registered and we hold a valid token.
         let paired = try await pairThroughSession(ClientSession(services: services), Outbox())
 
-        // A fresh connection reconnects using the pinned helper static, then authenticates in-channel.
         let session = ClientSession(services: services)
         let outbox = Outbox()
         func handle(_ m: Message) async { await session.handle(m, send: { outbox.add($0) }, close: {}) }

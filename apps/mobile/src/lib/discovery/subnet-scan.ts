@@ -36,7 +36,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// The phone's own Wi-Fi /24 prefix (e.g. "192.168.31."), or null if not on Wi-Fi after retrying.
 async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> {
   for (let attempt = 0; attempt < SUBNET_RETRIES; attempt += 1) {
     if (isCancelled()) return null;
@@ -51,8 +50,8 @@ async function subnetPrefix(isCancelled: () => boolean): Promise<string | null> 
   return null;
 }
 
-// Resolves the helper name if host:port answers the slate handshake, else null. Exported for the fast
-// path: a single clean probe of a known host, before the wide sweep saturates the radio.
+// Exported for the fast path: a single clean probe of a known host, before the wide sweep saturates
+// the radio.
 export function probeHelper(host: string, port: number): Promise<string | null> {
   return new Promise((resolve) => {
     let settled = false;
@@ -81,8 +80,8 @@ export function probeHelper(host: string, port: number): Promise<string | null> 
   });
 }
 
-// Probe every host on the phone's subnet; report each slate helper as it answers. Returns false if no
-// Wi-Fi subnet could be determined (so the caller can surface "enter the host manually").
+// Returns false if no Wi-Fi subnet could be determined, so the caller can surface "enter the host
+// manually".
 export async function scanForHelpers(
   port: number,
   onFound: (host: string, name: string) => void,

@@ -77,7 +77,7 @@ actor PairingService {
         return .active(secret: session.secret, expiresAt: session.expiresAt)
     }
 
-    // Called when the AEAD confirm fails (wrong code). Mirrors the old confirm() failure branch.
+    // Called when the AEAD confirm fails (wrong code).
     func recordFailure(now: Date = Date()) -> ConfirmOutcome {
         if let until = lockedUntil {
             if now < until { return .locked }

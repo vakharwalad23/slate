@@ -135,7 +135,6 @@ extension Command: Codable {
 // Mirrors messages.ts discriminatedUnion("type"). unknown(type:) tolerates anything not handled so
 // the receive loop can drop it (mirrors the Node helper's `default: return null`).
 enum Message: Sendable {
-    // app -> helper
     case hello(id: String, reId: String?, deviceId: String, deviceName: String, appVersion: String)
     case pairRequest(id: String, reId: String?)
     case auth(id: String, reId: String?, token: String)
@@ -150,7 +149,6 @@ enum Message: Sendable {
     case enc(id: String, reId: String?, c: Data)
     // v1 client detected pre-handshake so the helper can reply update_required before closing
     case legacyHello(id: String)
-    // helper -> app
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
     case pairError(id: String, reId: String?, reason: String)
     case pairPending(id: String, reId: String?, expiresInMs: Double)

@@ -3,7 +3,7 @@ import Foundation
 
 let foregroundTopic = "foregroundApp"
 
-// Per-connection handler. Three phases: plaintext (hello/ping/pair_request/sec_hello allowed), pairing
+// Three phases: plaintext (hello/ping/pair_request/sec_hello allowed), pairing
 // (awaiting the code proof), and secure (all app traffic wrapped in enc). `ping` is allowed before the
 // handshake so the phone's heartbeat does not drop the socket while pairing. The token is issued only
 // inside the encrypted channel (never as a plaintext frame).
@@ -180,8 +180,7 @@ actor ClientSession {
         phase = .secure(records: records)
     }
 
-    // Decrypt one inner envelope and dispatch it; replies are re-sealed. Nested secure frames or a
-    // decrypt failure are protocol violations and close the connection.
+    // Nested secure frames or a decrypt failure are protocol violations and close the connection.
     private func handleEnc(_ c: Data, records: RecordLayer) async {
         guard let inner = try? records.open(c), case let .success(message) = decodeMessage(inner) else {
             close?()

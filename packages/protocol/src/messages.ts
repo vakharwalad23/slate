@@ -15,7 +15,6 @@ function msg<T extends string, P extends z.ZodType>(type: T, payload: P) {
   return z.object({ ...envelopeBase, type: z.literal(type), payload });
 }
 
-// App -> Helper
 export const HelloMessage = msg(
   'hello',
   z.object({ deviceId: z.string(), deviceName: z.string(), appVersion: z.string() }),
@@ -33,7 +32,6 @@ export const PingMessage = msg('ping', z.object({ t: z.number() }));
 
 // Secure channel (v2). Byte fields are base64; the crypto contract lives outside Zod in
 // fixtures/crypto-vectors.json. Nonces are never on the wire (implicit per-direction counters).
-// App -> Helper
 export const SecHelloMessage = msg(
   'sec_hello',
   z.discriminatedUnion('mode', [
@@ -43,7 +41,6 @@ export const SecHelloMessage = msg(
 );
 export const SecConfirmMessage = msg('sec_confirm', z.object({ d: z.base64() }));
 
-// Helper -> App
 export const HelloAckMessage = msg(
   'hello_ack',
   z.object({
@@ -80,7 +77,6 @@ export const StateUpdateMessage = msg(
 );
 export const PongMessage = msg('pong', z.object({ t: z.number() }));
 export const ErrorMessage = msg('error', z.object({ code: z.string(), message: z.string() }));
-// Helper -> App secure channel
 export const SecHelloAckMessage = msg(
   'sec_hello_ack',
   z.discriminatedUnion('mode', [

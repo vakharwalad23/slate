@@ -20,7 +20,6 @@ import {
 } from './messages';
 import type { SecureResult } from './transport';
 
-// What the transport should do with a processed sec_*/enc frame.
 export type SecureOutcome =
   | { type: 'send'; message: Message }
   | { type: 'secured'; result: SecureResult }
@@ -36,7 +35,6 @@ export type SecureChannel = {
   wrapOutbound(message: Message): Message | null;
 };
 
-// Post-handshake record ops, shared by both channel kinds.
 function openEnc(records: RecordLayer, c: string): SecureOutcome {
   const inner: unknown = JSON.parse(utf8Decode(records.open(fromBase64(c))));
   const parsed = MessageSchema.safeParse(inner);

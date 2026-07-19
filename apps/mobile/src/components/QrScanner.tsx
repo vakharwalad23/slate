@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Text } from '@/components/ui';
 import { radii, spacing, useTheme } from '@/theme';
 
-// Fires onScan once per open with the raw QR string; the caller parses and closes.
 export function QrScanner({
   visible,
   onClose,

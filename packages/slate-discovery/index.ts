@@ -20,8 +20,8 @@ if (Platform.OS === 'android') {
 
 export const isUdpDiscoverySupported = native !== null;
 
-// Broadcast a probe and collect helper replies for up to timeoutMs. Never throws - resolves [] if the
-// native module is absent or discovery fails, so callers can rely on the sweep fallback.
+// Never throws - resolves [] if the native module is absent or discovery fails, so callers can rely
+// on the sweep fallback.
 export async function discoverHelpers(
   port: number,
   timeoutMs: number,

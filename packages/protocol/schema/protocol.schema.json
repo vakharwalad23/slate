@@ -6,7 +6,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -64,7 +64,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -107,7 +107,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -157,7 +157,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -207,7 +207,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -688,7 +688,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -731,7 +731,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -784,7 +784,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -837,7 +837,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -887,7 +887,149 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "sec_hello"
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "pair"
+                },
+                "e": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                }
+              },
+              "required": [
+                "mode",
+                "e"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "reconnect"
+                },
+                "e": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                },
+                "d": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                }
+              },
+              "required": [
+                "mode",
+                "e",
+                "d"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "sec_confirm"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "d": {
+              "type": "string",
+              "format": "base64",
+              "contentEncoding": "base64",
+              "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+            }
+          },
+          "required": [
+            "d"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -982,7 +1124,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1032,7 +1174,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1082,7 +1224,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1132,7 +1274,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1175,7 +1317,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1225,7 +1367,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1279,7 +1421,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1353,7 +1495,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1423,7 +1565,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1475,7 +1617,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1525,7 +1667,7 @@
       "properties": {
         "v": {
           "type": "number",
-          "const": 1
+          "const": 2
         },
         "id": {
           "type": "string",
@@ -1561,6 +1703,262 @@
           "required": [
             "code",
             "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "sec_hello_ack"
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "pair"
+                },
+                "e": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                },
+                "s": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                }
+              },
+              "required": [
+                "mode",
+                "e",
+                "s"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "reconnect"
+                },
+                "e": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                },
+                "d": {
+                  "type": "string",
+                  "format": "base64",
+                  "contentEncoding": "base64",
+                  "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                }
+              },
+              "required": [
+                "mode",
+                "e",
+                "d"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "sec_confirm_ack"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "d": {
+              "type": "string",
+              "format": "base64",
+              "contentEncoding": "base64",
+              "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+            }
+          },
+          "required": [
+            "d"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "sec_error"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "v",
+        "id",
+        "reId",
+        "type",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "reId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "string",
+          "const": "enc"
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "c": {
+              "type": "string",
+              "format": "base64",
+              "contentEncoding": "base64",
+              "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+            }
+          },
+          "required": [
+            "c"
           ],
           "additionalProperties": false
         }

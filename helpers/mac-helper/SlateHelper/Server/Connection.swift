@@ -64,6 +64,12 @@ final class Connection: @unchecked Sendable {
 
     private func handle(_ data: Data) async {
         guard case let .success(message) = decodeMessage(data) else { return }
+        // An outdated app gets one courtesy reply it can parse, then the socket closes.
+        if case let .legacyHello(id) = message {
+            sendData(legacyUpdateRequiredFrame(reId: id))
+            close()
+            return
+        }
         await session.handle(message) { [weak self] reply in
             self?.sendFrame(reply)
         }
@@ -71,6 +77,10 @@ final class Connection: @unchecked Sendable {
 
     private func sendFrame(_ message: Message) {
         guard let data = try? encodeMessage(message) else { return }
+        sendData(data)
+    }
+
+    private func sendData(_ data: Data) {
         let metadata = NWProtocolWebSocket.Metadata(opcode: .text)
         let context = NWConnection.ContentContext(identifier: "msg", metadata: [metadata])
         connection.send(content: data, contentContext: context, isComplete: true, completion: .contentProcessed { _ in })

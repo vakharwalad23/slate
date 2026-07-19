@@ -121,7 +121,7 @@ final class ClientSessionTests: XCTestCase {
 
     func testHelloDecodesFromWireJSON() {
         let json = """
-        {"v":1,"id":"11111111-1111-1111-1111-111111111111","reId":null,"type":"hello",
+        {"v":2,"id":"11111111-1111-1111-1111-111111111111","reId":null,"type":"hello",
         "payload":{"deviceId":"dev","deviceName":"phone","appVersion":"0.0.0"}}
         """
         guard case let .success(message) = decodeMessage(Data(json.utf8)),
@@ -140,7 +140,7 @@ final class ClientSessionTests: XCTestCase {
             capabilities: HelperConfig.capabilities, paired: false
         ))
         let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
-        XCTAssertEqual(object["v"] as? Int, 1)
+        XCTAssertEqual(object["v"] as? Int, PROTOCOL_VERSION)
         XCTAssertEqual(object["type"] as? String, "hello_ack")
         XCTAssertEqual(object["reId"] as? String, "abc")
         let id = try XCTUnwrap(object["id"] as? String)

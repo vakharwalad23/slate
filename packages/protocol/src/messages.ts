@@ -32,6 +32,18 @@ export const SubscribeStateMessage = msg(
 );
 export const PingMessage = msg('ping', z.object({ t: z.number() }));
 
+// Secure channel (v2). Byte fields are base64; the crypto contract lives outside Zod in
+// fixtures/crypto-vectors.json. Nonces are never on the wire (implicit per-direction counters).
+// App -> Helper
+export const SecHelloMessage = msg(
+  'sec_hello',
+  z.discriminatedUnion('mode', [
+    z.object({ mode: z.literal('pair'), e: z.base64() }),
+    z.object({ mode: z.literal('reconnect'), e: z.base64(), d: z.base64() }),
+  ]),
+);
+export const SecConfirmMessage = msg('sec_confirm', z.object({ d: z.base64() }));
+
 // Helper -> App
 export const HelloAckMessage = msg(
   'hello_ack',
@@ -70,6 +82,21 @@ export const StateUpdateMessage = msg(
 );
 export const PongMessage = msg('pong', z.object({ t: z.number() }));
 export const ErrorMessage = msg('error', z.object({ code: z.string(), message: z.string() }));
+// Helper -> App secure channel
+export const SecHelloAckMessage = msg(
+  'sec_hello_ack',
+  z.discriminatedUnion('mode', [
+    z.object({ mode: z.literal('pair'), e: z.base64(), s: z.base64() }),
+    z.object({ mode: z.literal('reconnect'), e: z.base64(), d: z.base64() }),
+  ]),
+);
+export const SecConfirmAckMessage = msg('sec_confirm_ack', z.object({ d: z.base64() }));
+export const SecErrorMessage = msg(
+  'sec_error',
+  z.object({ code: z.string(), message: z.string() }),
+);
+// Both directions: record-layer ciphertext of a full inner v2 envelope JSON.
+export const EncMessage = msg('enc', z.object({ c: z.base64() }));
 
 export const MessageSchema = z.discriminatedUnion('type', [
   HelloMessage,
@@ -81,6 +108,8 @@ export const MessageSchema = z.discriminatedUnion('type', [
   AppsIconMessage,
   SubscribeStateMessage,
   PingMessage,
+  SecHelloMessage,
+  SecConfirmMessage,
   HelloAckMessage,
   PairOkMessage,
   PairErrorMessage,
@@ -93,6 +122,10 @@ export const MessageSchema = z.discriminatedUnion('type', [
   StateUpdateMessage,
   PongMessage,
   ErrorMessage,
+  SecHelloAckMessage,
+  SecConfirmAckMessage,
+  SecErrorMessage,
+  EncMessage,
 ]);
 
 export type Message = z.infer<typeof MessageSchema>;

@@ -1,6 +1,6 @@
 import Foundation
 
-let PROTOCOL_VERSION = 1
+let PROTOCOL_VERSION = 2
 
 struct Capabilities: Codable, Equatable, Sendable {
     var launchApps: Bool
@@ -145,6 +145,12 @@ enum Message: Sendable {
     case appsIcon(id: String, reId: String?, bundleIds: [String])
     case subscribeState(id: String, reId: String?, topics: [String])
     case ping(id: String, reId: String?, t: Double)
+    // secure channel (byte fields carried as Data; base64 is only the wire encoding)
+    case secHello(id: String, reId: String?, mode: String, e: Data, d: Data?)
+    case secConfirm(id: String, reId: String?, d: Data)
+    case enc(id: String, reId: String?, c: Data)
+    // v1 client detected pre-handshake so the helper can reply update_required before closing
+    case legacyHello(id: String)
     // helper -> app
     case helloAck(id: String, reId: String?, helperName: String, helperVersion: String, capabilities: Capabilities, paired: Bool)
     case pairOk(id: String, reId: String?, token: String)
@@ -159,5 +165,8 @@ enum Message: Sendable {
     case stateUpdate(id: String, reId: String?, topic: String, value: String)
     case pong(id: String, reId: String?, t: Double)
     case error(id: String, reId: String?, code: String, message: String)
+    case secHelloAck(id: String, reId: String?, mode: String, e: Data, s: Data?, d: Data?)
+    case secConfirmAck(id: String, reId: String?, d: Data)
+    case secError(id: String, reId: String?, code: String, message: String)
     case unknown(type: String, id: String, reId: String?)
 }

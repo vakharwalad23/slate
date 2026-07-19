@@ -58,6 +58,17 @@ private struct BundleIdsPayload: Codable { let bundleIds: [String] }
 private struct TopicsPayload: Codable { let topics: [String] }
 private struct StateUpdatePayload: Codable { let topic: String; let value: String }
 private struct ErrorPayload: Codable { let code: String; let message: String }
+private struct SecHelloPayload: Decodable { let mode: String; let e: String; let d: String? }
+private struct SecHelloOutPayload: Encodable { let mode: String; let e: String; let d: String? }
+private struct SecHelloAckOutPayload: Encodable { let mode: String; let e: String; let s: String?; let d: String? }
+private struct DPayload: Codable { let d: String }
+private struct CPayload: Codable { let c: String }
+
+// Byte fields ride as base64; a decode failure is a malformed frame, dropped like any other.
+private func decodeBase64(_ s: String) throws -> Data {
+    guard let data = Data(base64Encoded: s) else { throw MessageDecodeError.malformedPayload("base64") }
+    return data
+}
 
 private struct HelloPayload: Codable {
     let deviceId: String
@@ -84,6 +95,8 @@ private struct AppsIconResponsePayload: Encodable { let icons: [IconEntry] }
 func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
     let decoder = sharedDecoder
     guard let env = try? decoder.decode(Envelope.self, from: data) else { return .failure(.badEnvelope) }
+    // A v1 hello is the one legacy frame we answer (update_required) instead of dropping.
+    if env.v == 1, env.type == "hello" { return .success(.legacyHello(id: env.id)) }
     guard env.v == PROTOCOL_VERSION else { return .failure(.badEnvelope) }
     do {
         switch env.type {
@@ -117,6 +130,16 @@ func decodeMessage(_ data: Data) -> Result<Message, MessageDecodeError> {
         case "ping":
             let f = try decoder.decode(InFrame<TPayload>.self, from: data)
             return .success(.ping(id: f.id, reId: f.reId, t: f.payload.t))
+        case "sec_hello":
+            let f = try decoder.decode(InFrame<SecHelloPayload>.self, from: data)
+            let d = try f.payload.d.map(decodeBase64)
+            return .success(.secHello(id: f.id, reId: f.reId, mode: f.payload.mode, e: try decodeBase64(f.payload.e), d: d))
+        case "sec_confirm":
+            let f = try decoder.decode(InFrame<DPayload>.self, from: data)
+            return .success(.secConfirm(id: f.id, reId: f.reId, d: try decodeBase64(f.payload.d)))
+        case "enc":
+            let f = try decoder.decode(InFrame<CPayload>.self, from: data)
+            return .success(.enc(id: f.id, reId: f.reId, c: try decodeBase64(f.payload.c)))
         default:
             return .success(.unknown(type: env.type, id: env.id, reId: env.reId))
         }
@@ -173,7 +196,33 @@ func encodeMessage(_ message: Message) throws -> Data {
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "pong", payload: TPayload(t: t)))
     case let .error(id, reId, code, message):
         return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "error", payload: ErrorPayload(code: code, message: message)))
-    case .unknown:
-        throw MessageDecodeError.malformedPayload("unknown")
+    case let .secHello(id, reId, mode, e, d):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "sec_hello",
+            payload: SecHelloOutPayload(mode: mode, e: e.base64EncodedString(), d: d?.base64EncodedString())))
+    case let .secConfirm(id, reId, d):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "sec_confirm", payload: DPayload(d: d.base64EncodedString())))
+    case let .enc(id, reId, c):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "enc", payload: CPayload(c: c.base64EncodedString())))
+    case let .secHelloAck(id, reId, mode, e, s, d):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "sec_hello_ack",
+            payload: SecHelloAckOutPayload(mode: mode, e: e.base64EncodedString(), s: s?.base64EncodedString(), d: d?.base64EncodedString())))
+    case let .secConfirmAck(id, reId, d):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "sec_confirm_ack", payload: DPayload(d: d.base64EncodedString())))
+    case let .secError(id, reId, code, message):
+        return try encoder.encode(OutFrame(v: v, id: id, reId: reId, type: "sec_error", payload: ErrorPayload(code: code, message: message)))
+    case .legacyHello, .unknown:
+        throw MessageDecodeError.malformedPayload("unencodable")
     }
+}
+
+// A v1-shaped error an outdated (v1) app can still parse, sent just before the socket closes.
+func legacyUpdateRequiredFrame(reId: String) -> Data {
+    let obj: [String: Any] = [
+        "v": 1,
+        "id": newMessageId(),
+        "reId": reId,
+        "type": "error",
+        "payload": ["code": "update_required", "message": "Update the slate helper and app to a matching version"],
+    ]
+    return (try? JSONSerialization.data(withJSONObject: obj)) ?? Data()
 }

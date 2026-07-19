@@ -38,6 +38,12 @@
       ],
       "expo-image",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "slate scans the pairing QR shown on your Mac to pair securely."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",

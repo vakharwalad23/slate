@@ -144,7 +144,8 @@ launching apps and changing volume do not need it.
 ### Phone app (Android APK)
 
 Download `slate-<version>.apk` from the same release, open it on your phone, and allow installing from
-your browser or files app when prompted. iOS has no prebuilt download - run it from source (below).
+your browser or files app when prompted. iOS has no prebuilt download - build it on your own iPhone
+with a free Apple ID: see [iOS on a physical iPhone](#ios-on-a-physical-iphone-free-apple-id-no-paid-account).
 
 ## Build and run from source
 
@@ -193,6 +194,34 @@ eas build --profile preview --platform android
 #   or a local native build (needs the Android SDK):
 pnpm -F @slate/mobile android
 ```
+
+#### iOS on a physical iPhone (free Apple ID, no paid account)
+
+There is no prebuilt iOS download: slate has no paid Apple Developer Program behind it, so no
+notarized, App Store, or TestFlight build. You can still install it on your own iPhone with a **free**
+Apple ID using Xcode's free provisioning. The one catch is Apple's limit for free accounts - the app
+stops launching about 7 days after it is signed, and you re-run it from Xcode to renew it.
+
+1. Give the app a bundle id that is unique to you. In `apps/mobile/app.json`, change
+   `ios.bundleIdentifier` from `com.slate.app` to something like `com.yourname.slate` - a free Apple ID
+   cannot sign a bundle id already registered to another team.
+2. Generate the native iOS project (this also runs `pod install`), then open the **workspace** - not
+   the `.xcodeproj`:
+
+   ```sh
+   pnpm -F @slate/mobile prebuild
+   open apps/mobile/ios/slate.xcworkspace
+   ```
+3. In Xcode: add your Apple ID under **Settings -> Accounts**, then select the `slate` target ->
+   **Signing & Capabilities**, tick **Automatically manage signing**, and pick your name (Personal
+   Team) as the Team.
+4. Plug in your iPhone, select it as the run destination, and press **Run** (Cmd-R). The first launch
+   is blocked until you trust the certificate: on the phone, **Settings -> General -> VPN & Device
+   Management -> your Apple ID -> Trust**. Allow the Local Network prompt so slate can find your Mac.
+
+Renewing: when slate refuses to open (~7 days later), reconnect the phone and press **Run** again to
+re-sign it - no rebuild from scratch needed. A paid Apple Developer account removes the expiry and is
+the only path to a shareable build (App Store / TestFlight / ad-hoc IPA); slate ships none today.
 
 ### 4. Pair and use
 

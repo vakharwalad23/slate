@@ -113,7 +113,21 @@ A pnpm monorepo.
 
 Prebuilt downloads are on the [Releases page](https://github.com/vakharwalad23/slate/releases).
 
-### macOS helper (DMG)
+### macOS helper
+
+Install with Homebrew (recommended) or from the DMG.
+
+**Homebrew**
+
+```sh
+brew tap vakharwalad23/tap
+brew trust vakharwalad23/tap    # one time: the cask runs a post-install step
+brew install --cask slate-helper
+```
+
+`brew upgrade` keeps it current, and the quarantine flag is cleared for you.
+
+**DMG**
 
 1. Download `slate-helper-<version>.dmg`, open it, and drag **SlateHelper** onto **Applications**.
 2. The helper is self-signed (not notarized), so macOS quarantines it on first launch. Clear the flag
@@ -123,9 +137,9 @@ Prebuilt downloads are on the [Releases page](https://github.com/vakharwalad23/s
    xattr -dr com.apple.quarantine /Applications/SlateHelper.app
    ```
 
-3. SlateHelper runs in the menu bar (no Dock icon). To send keystrokes, switch Spaces, cycle apps, or
-   use media keys, enable it under System Settings -> Privacy and Security -> Accessibility; launching
-   apps and changing volume do not need it.
+Either way, SlateHelper runs in the menu bar (no Dock icon). To send keystrokes, switch Spaces, cycle
+apps, or use media keys, enable it under System Settings -> Privacy and Security -> Accessibility;
+launching apps and changing volume do not need it.
 
 ### Phone app (Android APK)
 

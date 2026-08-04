@@ -56,6 +56,9 @@ gestures:
   <img src="docs/media/customize.gif" width="250" alt="Building a button" />
 </p>
 
+**New to slate?** The [user guide](docs/guide.md) walks through every feature, gesture, and chain
+step by step - with diagrams.
+
 ## Why slate?
 
 Most phone-as-deck apps route through a vendor cloud, lock you to one mobile platform, or show

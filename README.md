@@ -35,6 +35,8 @@ Built with React Native / Expo (one app for iOS and Android) and a native Swift 
 
 ## Demo
 
+> Prefer one clip? Watch the [30-second walkthrough](docs/media/slate-demo.mp4).
+
 The deck follows your foreground app - bind a deck to an app and it activates when that app comes
 to the front. Here, opening the editor on the Mac swaps the phone from the **Server** deck to the
 **DEV** deck automatically:

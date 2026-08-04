@@ -7,6 +7,21 @@ runs the action on your Mac. Local network only - no account, no cloud.
 If you have not installed it yet, see the [README install steps](../README.md#install) first (download
 the DMG + APK, drag the helper to Applications, clear quarantine).
 
+### How it works at a glance
+
+```mermaid
+flowchart LR
+  D["Phone: deck of buttons"] -->|"tap / gesture"| WS(["Local Wi-Fi: encrypted WebSocket"])
+  WS --> H["Mac menu-bar helper"]
+  H -->|"runs it"| OS["macOS: apps, Shortcuts, keystrokes, media, Spaces"]
+  H -.->|"live app icons + foreground app"| WS
+  WS -.-> D
+```
+
+You tap a button, the phone sends a small JSON command over your Wi-Fi, and the Mac helper runs it.
+The helper also streams the real app icons back, and reports which app is frontmost (used by live
+profile switching). Nothing leaves your network.
+
 Contents:
 
 - [1. First connection and pairing](#1-first-connection-and-pairing)
@@ -41,6 +56,18 @@ the new one. Five wrong codes locks pairing for 30 seconds (growing up to 5 minu
 [section 9](#9-pairing-security-and-devices). Everything after pairing is end-to-end encrypted; see
 [security](security.md).
 
+```mermaid
+sequenceDiagram
+  participant P as Phone
+  participant M as Mac helper
+  P->>M: Connect over the same Wi-Fi
+  M-->>P: Needs pairing
+  Note over M: Menu shows a QR + short code
+  P->>M: Scan QR or type code (X25519 handshake)
+  M-->>P: Per-device token, encrypted
+  Note over P,M: Later reconnects use the token - no code
+```
+
 ## 2. Permissions on the Mac
 
 Some actions synthesize input and need macOS **Accessibility** permission; others do not.
@@ -50,8 +77,18 @@ Some actions synthesize input and need macOS **Accessibility** permission; other
 | Keystroke, Space switch, Switch app, Activate app, media transport (Play/Pause, Next, Previous) | Launch app, volume (Vol +/-, Mute), AppleScript, Run Shortcut |
 
 To grant it: open the Mac helper menu; if you see an orange "Accessibility off", tap **Grant** (opens
-System Settings -> Privacy and Security -> Accessibility) and enable **slate helper**. Actions that
-need it are greyed out in the button editor until it is granted. The grant persists across restarts.
+System Settings -> Privacy and Security -> Accessibility) and enable **slate helper**. The grant
+persists across restarts.
+
+How this shows up on the phone: the helper checks its permissions **once at launch**, so the phone
+only offers the actions your helper currently supports.
+
+- **Keystroke, Space, and Switch app** are **hidden** from the button editor until Accessibility is
+  granted. After granting, **restart the helper** and let the phone reconnect for them to appear.
+- **Activate app** and **media transport** (Play/Pause, Next, Previous) always appear in the editor,
+  but silently need Accessibility to actually run.
+- **Shell** is hidden unless "Allow shell commands" was on when the helper started (also needs a
+  restart to appear) - see [section 11](#11-the-mac-helper-menu).
 
 Shell commands are a separate opt-in (off by default) - see [section 11](#11-the-mac-helper-menu).
 
@@ -124,6 +161,22 @@ Notes on the fiddly ones:
 - **Run Shortcut Input:** only used if the shortcut starts with a "Receive input" step; handy for
   passing a URL, query, or address.
 
+### Building a macro (a chain of steps)
+
+1. In the button editor pick the **Macro** action.
+2. Tap **Add step**. Each step is its own command; pick a step action from the short chips
+   (`Launch`, `Activate`, `Quit`, `Shortcut`, `AppleScript`, `Shell`, `Media`, `Key`, `Space`,
+   `Switch app`) and fill in its fields. (Macros cannot contain macros.)
+3. Optional per step: set **delay before (ms)** to wait before that step runs.
+4. Reorder steps with the up/down arrows; remove one with its `x`. Steps run top to bottom and
+   **stop at the first step that fails**.
+5. **Save**. Example chain: `Launch` an app -> `Key` step with a 500 ms delay -> `Shortcut`.
+
+```mermaid
+flowchart LR
+  S1["Step 1: Launch app"] --> W["wait delay (ms)"] --> S2["Step 2: Keystroke"] --> S3["Step 3: Run Shortcut"]
+```
+
 ## 6. Per-button gestures
 
 Besides the primary **tap**, each button has optional gesture slots that each run their own command:
@@ -155,6 +208,16 @@ Notes:
 A **deck** is a set of **pages**; each page is a grid of buttons. Use multiple decks for different
 contexts (e.g. one per app).
 
+```mermaid
+flowchart TD
+  Deck["Deck (e.g. Dev, Meetings)"] --> P1["Page 1"]
+  Deck --> P2["Page 2 ..."]
+  P1 --> B["Button"]
+  B --> Tap["Tap = primary action"]
+  B --> Gest["Gestures: long-press, double-tap, 4 swipes"]
+  B --> Look["Icon: app / emoji / glyph, plus color and label"]
+```
+
 **Decks** (top tabs):
 
 - **Switch:** tap a deck chip.
@@ -180,6 +243,14 @@ contexts (e.g. one per app).
 
 Bind a deck to a Mac app so the phone jumps to that deck automatically when the app comes to the
 front.
+
+```mermaid
+flowchart LR
+  A["An app comes to the front on your Mac"] --> B["Helper reports the foreground app"]
+  B --> C{"A deck bound to this app?"}
+  C -->|yes| D["Phone jumps to that deck's first page"]
+  C -->|no| E["Current deck stays"]
+```
 
 1. Long-press the deck's chip to open its sheet.
 2. Under **Auto-switch**, tap **Choose** (or **Change**), pick an app from the list, then **Save**.

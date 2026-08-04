@@ -33,6 +33,27 @@ Built with React Native / Expo (one app for iOS and Android) and a native Swift 
 > handshake with ChaCha20-Poly1305, so the channel is sealed and man-in-the-middle fails closed
 > without any TLS certificates. See [Security](#security).
 
+## Demo
+
+The deck follows your foreground app - bind a deck to an app and it activates when that app comes
+to the front. Here, opening the editor on the Mac swaps the phone from the **Server** deck to the
+**DEV** deck automatically:
+
+<p align="center"><img src="docs/media/profile.gif" width="460" alt="Live profile switching - the deck follows the Mac foreground app" /></p>
+
+Tap a button to run a command on your Mac:
+
+<p align="center"><img src="docs/media/deck.gif" width="560" alt="Tapping the deck to run commands on the Mac" /></p>
+
+Pair by scanning a QR, then build any button - apps, Shortcuts, AppleScript, keystrokes, macros,
+gestures:
+
+<p align="center">
+  <img src="docs/media/pairing.gif" width="250" alt="Pairing by scanning a QR" />
+  &nbsp;&nbsp;
+  <img src="docs/media/customize.gif" width="250" alt="Building a button" />
+</p>
+
 ## Why slate?
 
 Most phone-as-deck apps route through a vendor cloud, lock you to one mobile platform, or show

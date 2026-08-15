@@ -31,7 +31,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@discordjs/opus",
-      "naudiodon2"
+      "naudiodon2",
+      "segfault-handler"
     ]
   }
 }

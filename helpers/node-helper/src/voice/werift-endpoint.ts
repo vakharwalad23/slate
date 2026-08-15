@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
-import { OpusEncoder } from '@discordjs/opus';
+import type { OpusEncoder } from '@discordjs/opus';
+import OpusModule from '@discordjs/opus';
 import { AudioIO, type IoStreamRead, type IoStreamWrite, SampleFormat16Bit } from 'naudiodon2';
 import { MediaStreamTrack, RTCPeerConnection, RtpHeader, RtpPacket } from 'werift';
 import type { PcmFrame, VoiceEndpoint } from './endpoint';
@@ -59,8 +60,8 @@ export class WeriftVoiceEndpoint implements VoiceEndpoint {
     // Only latch `started` once every resource actually opened; a device/permission
     // failure mid-setup must leave the instance retryable, not wedged open forever.
     try {
-      this.encoder = new OpusEncoder(48000, 1);
-      this.decoder = new OpusEncoder(48000, 1);
+      this.encoder = new OpusModule.OpusEncoder(48000, 1);
+      this.decoder = new OpusModule.OpusEncoder(48000, 1);
 
       this.micStream = AudioIO({
         inOptions: { channelCount: 1, sampleFormat: SampleFormat16Bit, sampleRate: 48000 },

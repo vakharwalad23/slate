@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "preserve",
     "lib": ["ESNext", "DOM"],
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"],
       "@slate/protocol": ["../../packages/protocol/src/index.ts"]

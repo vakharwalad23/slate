@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "prebuild": "expo prebuild --clean",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

@@ -13,7 +13,7 @@ type NewId = () => string;
 export type IceState = 'connected' | 'failed' | 'checking' | 'closed';
 
 // Phone is the polite peer (perfect negotiation, out-of-band fixed roles; see design doc section
-// 7): on a glare it rolls back its own offer instead of asserting it over the remote's.
+// 7): it never asserts a stale/out-of-order answer over its own pending offer, it just drops it.
 export class VoicePeer {
   private readonly newId: NewId;
   private pc: RTCPeerConnection | null = null;
@@ -65,11 +65,18 @@ export class VoicePeer {
     const pc = this.pc;
     const callId = this.callId;
     if (pc === null || callId === null || this.makingOffer) return;
+    this.makingOffer = true;
     try {
-      this.makingOffer = true;
       const offer = await pc.createOffer();
+      // teardown() (from hangup() or a fresh start()) can race either await below; re-check
+      // identity so a stale offer never fires onOutbound with a dead pc or a superseded callId.
+      if (this.pc !== pc || this.callId !== callId) return;
       await pc.setLocalDescription(offer);
+      if (this.pc !== pc || this.callId !== callId) return;
       this.onOutbound?.(voiceOfferMessage(callId, offer.sdp, this.newId));
+    } catch {
+      // A closed pc mid-flight throws here; the call's fate is already decided elsewhere
+      // (onIceState / hangup), so there is nothing more to do.
     } finally {
       this.makingOffer = false;
     }
@@ -98,21 +105,27 @@ export class VoicePeer {
   private async handleAnswer(sdp: string): Promise<void> {
     const pc = this.pc;
     if (pc === null) return;
-    // Polite guard: an answer that arrives outside have-local-offer does not match our pending
-    // offer (stale frame or glare); roll back rather than apply it.
-    if (pc.signalingState !== 'have-local-offer') {
-      await pc.setLocalDescription(new RTCSessionDescription({ type: 'rollback', sdp: '' }));
-      return;
+    // rollback is only valid to call from have-local-offer; outside that state this answer is
+    // stale/out-of-order (there is no pending local offer for it to satisfy) - ignore it rather
+    // than call rollback, which would throw InvalidStateError from any other signaling state.
+    if (pc.signalingState !== 'have-local-offer') return;
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }));
+    } catch {
+      // Torn down mid-flight (races with teardown()); nothing more to do here.
     }
-    await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }));
   }
 
   private async handleRemoteIce(candidate: string | null): Promise<void> {
     const pc = this.pc;
     if (pc === null || candidate === null) return;
-    // The wire payload carries only the candidate string; the protocol is single-m-line
-    // audio-only, so sdpMLineIndex is always 0.
-    await pc.addIceCandidate(new RTCIceCandidate({ candidate, sdpMLineIndex: 0, sdpMid: null }));
+    try {
+      // The wire payload carries only the candidate string; the protocol is single-m-line
+      // audio-only, so sdpMLineIndex is always 0.
+      await pc.addIceCandidate(new RTCIceCandidate({ candidate, sdpMLineIndex: 0, sdpMid: null }));
+    } catch {
+      // Torn down mid-flight (races with teardown()); nothing more to do here.
+    }
   }
 
   private handleIceStateChange(): void {

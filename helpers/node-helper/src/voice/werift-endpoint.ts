@@ -56,39 +56,45 @@ export class WeriftVoiceEndpoint implements VoiceEndpoint {
 
   async start(): Promise<void> {
     if (this.started) return;
+    // Only latch `started` once every resource actually opened; a device/permission
+    // failure mid-setup must leave the instance retryable, not wedged open forever.
+    try {
+      this.encoder = new OpusEncoder(48000, 1);
+      this.decoder = new OpusEncoder(48000, 1);
+
+      this.micStream = AudioIO({
+        inOptions: { channelCount: 1, sampleFormat: SampleFormat16Bit, sampleRate: 48000 },
+      });
+      this.speakerStream = AudioIO({
+        outOptions: { channelCount: 1, sampleFormat: SampleFormat16Bit, sampleRate: 48000 },
+      });
+
+      this.pc = new RTCPeerConnection({ iceServers: [] });
+      this.pc.onicecandidate = (event) => {
+        this.iceCb?.(event.candidate ? event.candidate.candidate : null);
+      };
+
+      this.localTrack = new MediaStreamTrack({ kind: 'audio' });
+      const transceiver = this.pc.addTransceiver(this.localTrack, { direction: 'sendrecv' });
+      this.remoteTrack = transceiver.receiver.track;
+      const { unSubscribe } = this.remoteTrack.onReceiveRtp.subscribe((packet) => {
+        this.handleRemoteRtp(packet);
+      });
+      this.unsubReceiveRtp = unSubscribe;
+
+      this.ssrc = randomInt(1, 0xffffffff);
+      this.seq = randomInt(0, SEQ_MODULO);
+      this.ts = randomInt(0, TIMESTAMP_MODULO);
+
+      this.micStream.on('data', (chunk: Buffer) => this.handleMicChunk(chunk));
+      this.micStream.start();
+      this.speakerStream.start();
+      this.jitterTimer = setInterval(() => this.drainJitterBuffer(), FRAME_MS);
+    } catch (err) {
+      this.started = false;
+      throw err;
+    }
     this.started = true;
-
-    this.encoder = new OpusEncoder(48000, 1);
-    this.decoder = new OpusEncoder(48000, 1);
-
-    this.micStream = AudioIO({
-      inOptions: { channelCount: 1, sampleFormat: SampleFormat16Bit, sampleRate: 48000 },
-    });
-    this.speakerStream = AudioIO({
-      outOptions: { channelCount: 1, sampleFormat: SampleFormat16Bit, sampleRate: 48000 },
-    });
-
-    this.pc = new RTCPeerConnection({ iceServers: [] });
-    this.pc.onicecandidate = (event) => {
-      this.iceCb?.(event.candidate ? event.candidate.candidate : null);
-    };
-
-    this.localTrack = new MediaStreamTrack({ kind: 'audio' });
-    const transceiver = this.pc.addTransceiver(this.localTrack, { direction: 'sendrecv' });
-    this.remoteTrack = transceiver.receiver.track;
-    const { unSubscribe } = this.remoteTrack.onReceiveRtp.subscribe((packet) => {
-      this.handleRemoteRtp(packet);
-    });
-    this.unsubReceiveRtp = unSubscribe;
-
-    this.ssrc = randomInt(1, 0xffffffff);
-    this.seq = randomInt(0, SEQ_MODULO);
-    this.ts = randomInt(0, TIMESTAMP_MODULO);
-
-    this.micStream.on('data', (chunk: Buffer) => this.handleMicChunk(chunk));
-    this.micStream.start();
-    this.speakerStream.start();
-    this.jitterTimer = setInterval(() => this.drainJitterBuffer(), FRAME_MS);
   }
 
   async stop(): Promise<void> {
@@ -197,6 +203,13 @@ export class WeriftVoiceEndpoint implements VoiceEndpoint {
   private handleRemoteRtp(packet: RtpPacket): void {
     if (!this.decoder) return;
     const pcm = this.decoder.decode(packet.payload);
+    // DTX/comfort-noise (or any non-20ms) packets decode to a different length; the fixed
+    // FRAME_SAMPLES readInt16LE loop would read past the buffer, so drop anything that
+    // doesn't match rather than crash the jitter-drain timer mid-call.
+    if (pcm.length !== FRAME_BYTES) {
+      console.warn('dropped remote opus frame with unexpected decoded length', pcm.length);
+      return;
+    }
     this.jitterQueue.push(pcm);
     if (this.jitterQueue.length > JITTER_MAX_FRAMES) this.jitterQueue.shift();
   }

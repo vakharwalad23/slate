@@ -2,7 +2,7 @@ import type { Message } from '@slate/protocol';
 import * as Crypto from 'expo-crypto';
 import type { StateCreator } from 'zustand';
 import type { CallEvent, CallState, EndReason } from '@/lib/voice/call-state';
-import { initialCallState, voiceReducer } from '@/lib/voice/call-state';
+import { ACTIVE, initialCallState, voiceReducer } from '@/lib/voice/call-state';
 import { VoicePeer } from '@/lib/voice/peer';
 import { webSocketTransport } from '@/lib/ws';
 import type { RootState } from '@/stores/store';
@@ -84,7 +84,10 @@ export const createVoiceSlice: StateCreator<RootState, [], [], VoiceSlice> = (se
     },
 
     endCall: (reason) => {
-      if (get().call.status === 'idle') return;
+      // Guard on ACTIVE (not just !== 'idle'): a second teardown event racing in right after
+      // the first (e.g. ice_failed then socket_drop from the same network drop) would otherwise
+      // re-arm resetTimer and needlessly delay the return to idle.
+      if (!ACTIVE.includes(get().call.status)) return;
       peer?.hangup();
       teardownLocal();
       apply({ type: reason });

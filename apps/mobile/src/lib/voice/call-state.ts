@@ -19,7 +19,7 @@ export type CallEvent =
   | { type: 'ice_failed' }
   | { type: 'reset' };
 
-const ACTIVE: readonly CallStatus[] = ['offering', 'connecting', 'in_call'];
+export const ACTIVE: readonly CallStatus[] = ['offering', 'connecting', 'in_call'];
 
 // callId-scoped: an event tagged with a callId that does not match the live call is a stale
 // frame from a previous socket/call and is dropped (mirrors the transport generation guard).

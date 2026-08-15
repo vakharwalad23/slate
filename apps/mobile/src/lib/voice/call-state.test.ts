@@ -25,6 +25,18 @@ test('socket_drop from any active status -> ended with reason', () => {
   assert.equal(next.endReason, 'socket_drop');
 });
 
+test('ice_failed from connecting -> ended with ice_failed reason (watchdog)', () => {
+  const next = voiceReducer({ ...at('connecting'), callId: 'c1' }, { type: 'ice_failed' });
+  assert.equal(next.status, 'ended');
+  assert.equal(next.endReason, 'ice_failed');
+});
+
+test('ice_failed from offering -> ended with ice_failed reason (watchdog)', () => {
+  const next = voiceReducer({ ...at('offering'), callId: 'c1' }, { type: 'ice_failed' });
+  assert.equal(next.status, 'ended');
+  assert.equal(next.endReason, 'ice_failed');
+});
+
 test('reset moves ended -> idle and clears callId', () => {
   const next = voiceReducer(
     { ...at('ended'), callId: 'c1', endReason: 'user_hangup' },

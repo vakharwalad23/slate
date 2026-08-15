@@ -79,6 +79,12 @@ export default function VoiceScreen() {
               This Mac does not advertise voice intercom support.
             </Text>
           )}
+          {call.status === 'ended' && call.endReason === 'ice_failed' && (
+            <Text variant="caption" tone="danger">
+              Could not connect. slate voice needs both devices on the same Wi-Fi - guest networks,
+              AP/client isolation, and phone-on-cellular are not supported.
+            </Text>
+          )}
         </Surface>
 
         {active ? (

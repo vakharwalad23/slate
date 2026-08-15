@@ -573,6 +573,32 @@
           "sdp": "v=0..."
         }
       }
+    },
+    {
+      "name": "voice.ice helper candidate",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000007",
+        "reId": null,
+        "type": "voice.ice",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "candidate": "candidate:0 1 UDP 2122252543 192.168.1.20 54321 typ host"
+        }
+      }
+    },
+    {
+      "name": "voice.hangup helper teardown",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000008",
+        "reId": null,
+        "type": "voice.hangup",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "reason": "helper_error"
+        }
+      }
     }
   ],
   "notYetDecoded": [],

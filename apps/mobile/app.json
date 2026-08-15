@@ -50,6 +50,13 @@
           "imageWidth": 180,
           "backgroundColor": "#4f46e5"
         }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "slate uses the microphone for the voice intercom",
+          "cameraPermission": "slate does not use the camera"
+        }
       ]
     ],
     "extra": {

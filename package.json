@@ -27,5 +27,11 @@
     "*.{ts,tsx,js,jsx,json,jsonc}": [
       "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@discordjs/opus",
+      "naudiodon2"
+    ]
   }
 }

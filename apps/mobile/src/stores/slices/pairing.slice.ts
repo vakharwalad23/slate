@@ -13,6 +13,11 @@ import {
 import { authMessage, pairRequestMessage, type SecureResult, webSocketTransport } from '@/lib/ws';
 import type { RootState } from '@/stores/store';
 
+// Dev/testing escape hatch: the Node MVP helper implements no pairing handshake, so with this set the
+// phone skips pairing and uses the socket in plaintext to reach the deck + voice intercom. OFF unless
+// EXPO_PUBLIC_UNPAIRED_BYPASS=1 is baked into the build (see the preview profile in eas.json).
+const UNPAIRED_BYPASS = process.env['EXPO_PUBLIC_UNPAIRED_BYPASS'] === '1';
+
 export type AuthPhase =
   | 'idle'
   | 'authenticating'
@@ -63,6 +68,9 @@ export const createPairingSlice: StateCreator<RootState, [], [], PairingSlice> =
     if (paired && token !== null && pin !== null) {
       webSocketTransport.startSecure({ mode: 'reconnect', helperStaticPub: fromBase64(pin) });
       set({ authPhase: 'authenticating', pairFailureReason: null });
+    } else if (UNPAIRED_BYPASS) {
+      set({ authPhase: 'paired', pairFailureReason: null });
+      get().subscribeLiveState();
     } else {
       set({ authPhase: 'needs_pairing', pairFailureReason: null });
     }

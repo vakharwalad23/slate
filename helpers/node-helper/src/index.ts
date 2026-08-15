@@ -1,7 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import type { MessageOf } from '@slate/protocol';
 import { MessageSchema, PROTOCOL_VERSION } from '@slate/protocol';
 import { Bonjour } from 'bonjour-service';
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
 import { handleMessage } from './dispatch';
+import { VoiceSession } from './voice/session';
+import { createWeriftEndpoint } from './voice/werift-endpoint';
 
 const PORT = 8765;
 
@@ -17,13 +21,38 @@ wss.on('listening', () => {
 
 wss.on('connection', (socket) => {
   console.log('client connected');
-  socket.on('message', (data) => {
-    void onMessage(socket, data);
+  const session = new VoiceSession(createWeriftEndpoint);
+  // currentCallId comes from the last inbound voice.offer; ICE candidates the endpoint
+  // discovers later have no callId of their own, so this is the only way to stamp one.
+  let currentCallId: string | null = null;
+  session.onIce((candidate) => {
+    if (!currentCallId) return;
+    const ice: MessageOf<'voice.ice'> = {
+      v: PROTOCOL_VERSION,
+      id: randomUUID(),
+      reId: null,
+      type: 'voice.ice',
+      payload: { callId: currentCallId, candidate },
+    };
+    socket.send(JSON.stringify(ice));
   });
-  socket.on('close', () => console.log('client disconnected'));
+  socket.on('message', (data) => {
+    void onMessage(socket, data, session, (callId) => {
+      currentCallId = callId;
+    });
+  });
+  socket.on('close', () => {
+    console.log('client disconnected');
+    void session.hangup();
+  });
 });
 
-async function onMessage(socket: WebSocket, data: RawData): Promise<void> {
+async function onMessage(
+  socket: WebSocket,
+  data: RawData,
+  session: VoiceSession,
+  setCurrentCallId: (callId: string) => void,
+): Promise<void> {
   let json: unknown;
   try {
     json = JSON.parse(data.toString());
@@ -36,7 +65,8 @@ async function onMessage(socket: WebSocket, data: RawData): Promise<void> {
     console.warn('dropped invalid message:', parsed.error.issues[0]?.message);
     return;
   }
-  const reply = await handleMessage(parsed.data);
+  if (parsed.data.type === 'voice.offer') setCurrentCallId(parsed.data.payload.callId);
+  const reply = await handleMessage(parsed.data, undefined, session);
   if (reply) socket.send(JSON.stringify(reply));
 }
 

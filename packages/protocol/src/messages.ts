@@ -2,6 +2,12 @@ import { z } from 'zod';
 import { CapabilitiesSchema } from './capabilities';
 import { CommandSchema } from './command';
 import { envelopeBase } from './envelope';
+import {
+  VoiceAnswerPayload,
+  VoiceHangupPayload,
+  VoiceIcePayload,
+  VoiceOfferPayload,
+} from './voice';
 
 export const AppInfoSchema = z.object({
   bundleId: z.string(),
@@ -92,6 +98,11 @@ export const SecErrorMessage = msg(
 // Both directions: record-layer ciphertext of a full inner v2 envelope JSON.
 export const EncMessage = msg('enc', z.object({ c: z.base64() }));
 
+export const VoiceOfferMessage = msg('voice.offer', VoiceOfferPayload);
+export const VoiceAnswerMessage = msg('voice.answer', VoiceAnswerPayload);
+export const VoiceIceMessage = msg('voice.ice', VoiceIcePayload);
+export const VoiceHangupMessage = msg('voice.hangup', VoiceHangupPayload);
+
 export const MessageSchema = z.discriminatedUnion('type', [
   HelloMessage,
   PairRequestMessage,
@@ -118,6 +129,10 @@ export const MessageSchema = z.discriminatedUnion('type', [
   SecConfirmAckMessage,
   SecErrorMessage,
   EncMessage,
+  VoiceOfferMessage,
+  VoiceAnswerMessage,
+  VoiceIceMessage,
+  VoiceHangupMessage,
 ]);
 
 export type Message = z.infer<typeof MessageSchema>;

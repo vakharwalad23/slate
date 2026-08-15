@@ -8,6 +8,7 @@ export const CapabilitiesSchema = z.object({
   appList: z.boolean(),
   appIcons: z.boolean(),
   liveState: z.boolean(),
+  voiceIntercom: z.boolean(),
 });
 
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;

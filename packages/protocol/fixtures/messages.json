@@ -297,6 +297,45 @@
           "c": "RERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERA=="
         }
       }
+    },
+    {
+      "name": "voice.offer",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000002",
+        "reId": null,
+        "type": "voice.offer",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "sdp": "v=0..."
+        }
+      }
+    },
+    {
+      "name": "voice.ice",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000004",
+        "reId": null,
+        "type": "voice.ice",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "candidate": null
+        }
+      }
+    },
+    {
+      "name": "voice.hangup",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000005",
+        "reId": null,
+        "type": "voice.hangup",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "reason": "user_hangup"
+        }
+      }
     }
   ],
   "outbound": [
@@ -317,7 +356,8 @@
             "keystrokes": false,
             "appList": true,
             "appIcons": true,
-            "liveState": false
+            "liveState": false,
+            "voiceIntercom": false
           },
           "paired": false
         }
@@ -520,6 +560,19 @@
           "c": "RERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERA=="
         }
       }
+    },
+    {
+      "name": "voice.answer",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000003",
+        "reId": "70000000-0000-4000-8000-000000000002",
+        "type": "voice.answer",
+        "payload": {
+          "callId": "70000000-0000-4000-8000-000000000001",
+          "sdp": "v=0..."
+        }
+      }
     }
   ],
   "notYetDecoded": [],
@@ -574,6 +627,20 @@
         "type": "ping",
         "payload": {
           "t": "soon"
+        }
+      }
+    },
+    {
+      "name": "voice.offer bad callId",
+      "reason": "voice.offer.callId must be a uuid",
+      "frame": {
+        "v": 2,
+        "id": "70000000-0000-4000-8000-000000000006",
+        "reId": null,
+        "type": "voice.offer",
+        "payload": {
+          "callId": "not-a-uuid",
+          "sdp": "v=0..."
         }
       }
     }

@@ -38,3 +38,23 @@ test('voice.offer returns a voice.answer with reId = offer id', async () => {
     assert.equal(res.payload.sdp, 'answer-sdp');
   }
 });
+
+test('voice.offer failure resolves to voice.hangup instead of rejecting', async () => {
+  let hangupCalled = false;
+  const session = {
+    handleOffer: async () => {
+      throw new Error('mic busy');
+    },
+    hangup: async () => {
+      hangupCalled = true;
+    },
+    onIce() {},
+  } as unknown as VoiceSession;
+  const res = await handleMessage(offer, undefined, session);
+  assert.equal(res?.type, 'voice.hangup');
+  if (res?.type === 'voice.hangup') {
+    assert.equal(res.payload.callId, offer.payload.callId);
+    assert.equal(res.payload.reason, 'helper_error');
+  }
+  assert.equal(hangupCalled, true);
+});

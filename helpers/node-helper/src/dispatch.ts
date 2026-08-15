@@ -42,22 +42,54 @@ export async function handleMessage(
     }
     case 'voice.offer': {
       if (!session) return null;
-      const sdp = await session.handleOffer(msg.payload.sdp);
-      const answer: MessageOf<'voice.answer'> = {
-        v: PROTOCOL_VERSION,
-        id: randomUUID(),
-        reId: msg.id,
-        type: 'voice.answer',
-        payload: { callId: msg.payload.callId, sdp },
-      };
-      return answer;
+      try {
+        const sdp = await session.handleOffer(msg.payload.sdp);
+        const answer: MessageOf<'voice.answer'> = {
+          v: PROTOCOL_VERSION,
+          id: randomUUID(),
+          reId: msg.id,
+          type: 'voice.answer',
+          payload: { callId: msg.payload.callId, sdp },
+        };
+        return answer;
+      } catch (err) {
+        console.error('voice.offer failed:', err instanceof Error ? err.message : err);
+        // Best-effort: a failed handleOffer may have left a partially-started endpoint;
+        // hangup's own failure must not mask the original error or crash the process.
+        try {
+          await session.hangup();
+        } catch (hangupErr) {
+          console.error(
+            'session teardown after failed offer also failed:',
+            hangupErr instanceof Error ? hangupErr.message : hangupErr,
+          );
+        }
+        const hangup: MessageOf<'voice.hangup'> = {
+          v: PROTOCOL_VERSION,
+          id: randomUUID(),
+          reId: msg.id,
+          type: 'voice.hangup',
+          payload: { callId: msg.payload.callId, reason: 'helper_error' },
+        };
+        return hangup;
+      }
     }
     case 'voice.ice': {
-      if (session) await session.addIce(msg.payload.candidate);
+      if (!session) return null;
+      try {
+        await session.addIce(msg.payload.candidate);
+      } catch (err) {
+        console.error('voice.ice failed:', err instanceof Error ? err.message : err);
+      }
       return null;
     }
     case 'voice.hangup': {
-      if (session) await session.hangup();
+      if (!session) return null;
+      try {
+        await session.hangup();
+      } catch (err) {
+        console.error('voice.hangup failed:', err instanceof Error ? err.message : err);
+      }
       return null;
     }
     case 'command.execute': {

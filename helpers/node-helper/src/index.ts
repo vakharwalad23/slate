@@ -37,8 +37,10 @@ wss.on('connection', (socket) => {
     socket.send(JSON.stringify(ice));
   });
   socket.on('message', (data) => {
-    void onMessage(socket, data, session, (callId) => {
+    onMessage(socket, data, session, (callId) => {
       currentCallId = callId;
+    }).catch((err) => {
+      console.error('onMessage failed:', err instanceof Error ? err.message : err);
     });
   });
   socket.on('close', () => {
@@ -80,3 +82,8 @@ function shutdown(): void {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+// Defense-in-depth: dispatch.ts and onMessage already guard every voice-path rejection,
+// but a future floating promise must never be able to take down all connected clients.
+process.on('unhandledRejection', (err) => {
+  console.error('unhandled rejection:', err instanceof Error ? err.message : err);
+});

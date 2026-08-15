@@ -92,6 +92,16 @@ export class WeriftVoiceEndpoint implements VoiceEndpoint {
       this.jitterTimer = setInterval(() => this.drainJitterBuffer(), FRAME_MS);
     } catch (err) {
       this.started = false;
+      // stop() null-checks every field, so it safely tears down whatever start() managed
+      // to open before the failure; a cleanup failure here must not mask the original error.
+      try {
+        await this.stop();
+      } catch (cleanupErr) {
+        console.error(
+          'cleanup after failed start also failed:',
+          cleanupErr instanceof Error ? cleanupErr.message : cleanupErr,
+        );
+      }
       throw err;
     }
     this.started = true;

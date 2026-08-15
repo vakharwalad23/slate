@@ -14,6 +14,7 @@ const CAPABILITIES: Capabilities = {
   appList: false,
   appIcons: false,
   liveState: false,
+  voiceIntercom: false,
 };
 
 // Replies inline-annotated with MessageOf<...> so each literal stays narrowed; a generic

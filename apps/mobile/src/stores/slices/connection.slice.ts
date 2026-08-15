@@ -62,11 +62,16 @@ export const createConnectionSlice: StateCreator<RootState, [], [], ConnectionSl
         clearHelloAckTimer();
         set({ helper: null, foregroundApp: null, helperOutdated: false });
         get().onSocketDown();
+        get().endCall('socket_drop');
       }
     },
     onSecure: (result) => get().onSecure(result),
     onSecureError: (code) => get().onSecureError(code),
     onMessage: (message) => {
+      if (message.type.startsWith('voice.')) {
+        get().onVoiceMessage(message);
+        return;
+      }
       switch (message.type) {
         case 'hello_ack':
           clearHelloAckTimer();

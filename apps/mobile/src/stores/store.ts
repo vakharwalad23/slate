@@ -9,13 +9,15 @@ import { createDeckSlice, type DeckSlice } from './slices/deck.slice';
 import { createDiscoverySlice, type DiscoverySlice } from './slices/discovery.slice';
 import { createLogsSlice, type LogsSlice } from './slices/logs.slice';
 import { createPairingSlice, type PairingSlice } from './slices/pairing.slice';
+import { createVoiceSlice, type VoiceSlice } from './slices/voice.slice';
 
 export type RootState = ConnectionSlice &
   PairingSlice &
   DeckSlice &
   AppsSlice &
   DiscoverySlice &
-  LogsSlice;
+  LogsSlice &
+  VoiceSlice;
 
 const MetaSchema = z.object({
   host: z.string().optional(),
@@ -37,6 +39,7 @@ export const useStore = create<RootState>()(
         ...createAppsSlice(...a),
         ...createDiscoverySlice(...a),
         ...createLogsSlice(...a),
+        ...createVoiceSlice(...a),
       }),
       {
         name: 'slate-root',

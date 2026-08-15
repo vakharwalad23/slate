@@ -131,6 +131,9 @@ export default function DeckScreen() {
           />
         </PressableScale>
       ) : null}
+      <PressableScale onPress={() => router.push('/voice')} haptics={false}>
+        <Icon name="microphone" size={24} color={colors.textSecondary} />
+      </PressableScale>
       <PressableScale onPress={() => router.push('/settings')} haptics={false}>
         <Icon name="cog" size={24} color={colors.textSecondary} />
       </PressableScale>

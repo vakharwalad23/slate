@@ -28,9 +28,11 @@ export class VoicePeer {
     this.newId = newId;
   }
 
-  async start(): Promise<void> {
+  // callId is minted by the caller (the voice slice), not here: the reducer's user_start and this
+  // peer's wire callId must be the same value, so the single mint has to happen above both.
+  async start(callId: string): Promise<void> {
     if (this.pc !== null) return;
-    this.callId = this.newId();
+    this.callId = callId;
     const pc = new RTCPeerConnection({ iceServers: [] });
     this.pc = pc;
 

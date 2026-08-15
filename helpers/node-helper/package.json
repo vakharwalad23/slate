@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "test": "node --import tsx --test src/commands.test.ts",
+    "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
